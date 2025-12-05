@@ -11,18 +11,65 @@ const getYearMonth = (timestamp: number) => {
   return `${year}-${month}`
 }
 
-export async function uploadMeterImage(_flatId: string, file: File): Promise<string> {
-  // Storage-free implementation: read the file as a data URL and store that string in Firestore.
-  // This keeps everything on the free Firestore plan and avoids Cloud Storage entirely.
-  return await new Promise<string>((resolve, reject) => {
+/**
+ * Compresses and resizes an image file to fit within Firestore's field size limits
+ * while maintaining quality for OCR. Returns a base64 data URL.
+ */
+async function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
     const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') resolve(reader.result)
-      else reject(new Error('Could not read file'))
+    
+    reader.onload = (e) => {
+      if (!e.target?.result) {
+        reject(new Error('Failed to read file'))
+        return
+      }
+      img.src = e.target.result as string
     }
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'))
+    
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    
+    img.onload = () => {
+      // Calculate new dimensions
+      let width = img.width
+      let height = img.height
+      
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width
+        width = maxWidth
+      }
+      
+      // Create canvas and draw resized image
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'))
+        return
+      }
+      
+      ctx.drawImage(img, 0, 0, width, height)
+      
+      // Convert to JPEG with compression
+      const dataUrl = canvas.toDataURL('image/jpeg', quality)
+      resolve(dataUrl)
+    }
+    
+    img.onerror = () => reject(new Error('Failed to load image'))
+    
     reader.readAsDataURL(file)
   })
+}
+
+export async function uploadMeterImage(_flatId: string, file: File): Promise<string> {
+  // Storage-free implementation: compress the image and store as a data URL in Firestore.
+  // This keeps everything on the free Firestore plan and avoids Cloud Storage entirely.
+  // Images are resized to max 1200px width and compressed to ~85% quality to stay under
+  // Firestore's ~1MB field size limit while maintaining OCR accuracy.
+  return await compressImage(file)
 }
 
 export async function createReadingFromImage(
