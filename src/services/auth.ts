@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { User } from '../types/models'
-import { getUserByUsername, type UserDocument } from './users'
+import { getUserByUsername } from './users'
 import { verifyPassword } from './security'
 
 const STORAGE_KEY = 'smartmeter_current_user'

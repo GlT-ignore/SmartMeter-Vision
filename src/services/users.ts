@@ -5,6 +5,8 @@ import { hashPassword } from './security'
 
 export interface UserDocument extends User {
   passwordHash: string
+  flatId?: string | null
+  createdAt?: number
 }
 
 export async function createUser(
