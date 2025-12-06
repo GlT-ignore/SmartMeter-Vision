@@ -180,7 +180,7 @@ const AdminDashboard = () => {
       const ids = new Set<string>()
       allApprovedItems.forEach((r) => ids.add(r.flatId))
       allRejectedItems.forEach((r) => ids.add(r.flatId))
-      setFlatOptions(Array.from(ids))
+      setFlatOptions(Array.from(ids).sort())
     } catch (error) {
       console.error(error)
     } finally {
@@ -207,7 +207,7 @@ const AdminDashboard = () => {
       readings.forEach((r) => ids.add(r.flatId))
       setFlatOptions((prev) => {
         const combined = new Set([...prev, ...ids])
-        return Array.from(combined)
+        return Array.from(combined).sort()
       })
     }, flatFilter || undefined)
 
@@ -219,7 +219,7 @@ const AdminDashboard = () => {
       readings.forEach((r) => ids.add(r.flatId))
       setFlatOptions((prev) => {
         const combined = new Set([...prev, ...ids])
-        return Array.from(combined)
+        return Array.from(combined).sort()
       })
     }, flatFilter || undefined)
 
