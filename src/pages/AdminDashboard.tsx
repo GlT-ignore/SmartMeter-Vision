@@ -905,9 +905,14 @@ const AdminDashboard = () => {
                           {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
                         </td>
                         <td>
-                          <a className="pill" href={item.imageUrl} target="_blank" rel="noreferrer">
+                          <button
+                            className="pill"
+                            type="button"
+                            disabled={!item.imageUrl}
+                            onClick={() => item.imageUrl && setViewingImage(item.imageUrl)}
+                          >
                             Open
-                          </a>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -948,15 +953,14 @@ const AdminDashboard = () => {
                       </span>
                     </div>
                     <div className="mobile-card-actions">
-                      <a
+                      <button
                         className="btn btn-tertiary"
-                        href={item.imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ textDecoration: 'none' }}
+                        type="button"
+                        disabled={!item.imageUrl}
+                        onClick={() => item.imageUrl && setViewingImage(item.imageUrl)}
                       >
                         Open image
-                      </a>
+                      </button>
                     </div>
                   </div>
                 ))}
