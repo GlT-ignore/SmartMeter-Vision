@@ -23,7 +23,8 @@ const formatDate = (timestamp?: number) => {
 
 const formatNumber = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
-  return value.toFixed(2)
+  // Format to 3 decimal places and remove trailing zeros
+  return value.toFixed(3).replace(/\.?0+$/, '')
 }
 
 const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
@@ -42,19 +43,11 @@ const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
         </div>
         <div className="stack">
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <strong>OCR reading:</strong> <span>{formatNumber(reading.ocrReading)}</span>
-            {reading.ocrConfidence ? (
-              <span className="pill">Confidence {reading.ocrConfidence.toFixed(0)}%</span>
-            ) : null}
-          </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
             <strong>Approved:</strong>{' '}
             <span>
               {reading.correctedReading !== null && reading.correctedReading !== undefined
                 ? formatNumber(reading.correctedReading)
-                : reading.ocrReading !== null && reading.ocrReading !== undefined
-                  ? formatNumber(reading.ocrReading)
-                  : 'Pending'}
+                : 'Pending'}
             </span>
           </div>
           <div className="row" style={{ flexWrap: 'wrap' }}>

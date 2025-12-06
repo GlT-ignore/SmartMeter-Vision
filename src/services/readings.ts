@@ -1,7 +1,7 @@
 import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Reading } from '../types/models'
-import { getGlobalTariff, getMinimumPrice } from './settings'
+import { getGlobalTariff, getMinimumPrice, getUnitFactor } from './settings'
 import { getFlatByFlatId } from './flats'
 
 const getYearMonth = (timestamp: number) => {
@@ -72,12 +72,7 @@ export async function uploadMeterImage(_flatId: string, file: File): Promise<str
   return await compressImage(file)
 }
 
-export async function createReadingFromImage(
-  flatId: string,
-  imageUrl: string,
-  ocrReading: number | null,
-  ocrConfidence?: number | null,
-): Promise<void> {
+export async function createReadingFromImage(flatId: string, imageUrl: string): Promise<void> {
   const readingsRef = collection(db, 'readings')
   const now = Date.now()
   const yearMonth = getYearMonth(now)
@@ -89,8 +84,9 @@ export async function createReadingFromImage(
   await addDoc(readingsRef, {
     flatId,
     imageUrl,
-    ocrReading,
-    ocrConfidence: ocrConfidence ?? null,
+    // OCR is no longer used; keep fields for backwards compatibility.
+    ocrReading: null,
+    ocrConfidence: null,
     correctedReading: null,
     previousReading: null,
     unitsUsed: null,
@@ -207,6 +203,7 @@ export async function approveReading(readingId: string, correctedReading: number
 
   const tariffPerUnit = await getGlobalTariff()
   const minimumPrice = await getMinimumPrice()
+  const unitFactor = await getUnitFactor()
 
   // First, try to find the most recent approved reading for this flat
   // Exclude the current reading being approved
@@ -257,6 +254,7 @@ export async function approveReading(readingId: string, correctedReading: number
     // Freeze the tariff used for this bill so later tariff changes do not
     // alter historical amounts.
     tariffAtApproval: tariffPerUnit,
+    unitFactorAtApproval: unitFactor,
   })
 }
 

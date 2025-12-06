@@ -14,14 +14,39 @@ import {
   subscribeToRejectedReadings,
 } from '../services/readings'
 import type { Reading, Flat } from '../types/models'
-import { getGlobalTariff, updateGlobalTariff, getMinimumPrice, updateMinimumPrice } from '../services/settings'
+import {
+  getGlobalTariff,
+  updateGlobalTariff,
+  getMinimumPrice,
+  updateMinimumPrice,
+  getUnitFactor,
+  updateUnitFactor,
+} from '../services/settings'
 import { getAllFlats, updateFlat } from '../services/flats'
 import ImageViewerModal from '../components/ImageViewerModal'
 import ReceiptModal from '../components/ReceiptModal'
+import SummaryModal from '../components/SummaryModal'
 
 const formatNumber = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
-  return value.toFixed(2)
+  // Format to 3 decimal places and remove trailing zeros
+  return value.toFixed(3).replace(/\.?0+$/, '')
+}
+
+const DEFAULT_UNIT_CONVERSION_KG = 2.3
+const DEFAULT_MINIMUM_CHARGE = 25
+
+// Calculate grand total the same way the receipt does
+const calculateGrandTotal = (reading: Reading): number => {
+  const units = reading.unitsUsed ?? 0
+  const unitFactor = reading.unitFactorAtApproval ?? DEFAULT_UNIT_CONVERSION_KG
+  const tariffPerKg = reading.tariffAtApproval ?? 0
+  
+  const totalKg = units * unitFactor
+  const energyAmount = totalKg * tariffPerKg
+  const grandTotal = energyAmount + DEFAULT_MINIMUM_CHARGE
+  
+  return grandTotal
 }
 
 const AdminDashboard = () => {
@@ -37,8 +62,10 @@ const AdminDashboard = () => {
   const [flatOptions, setFlatOptions] = useState<string[]>([])
   const [globalTariff, setGlobalTariff] = useState<number>(0)
   const [minimumPrice, setMinimumPrice] = useState<number>(250)
+  const [unitFactor, setUnitFactor] = useState<number>(2.3)
   const [savingGlobalTariff, setSavingGlobalTariff] = useState(false)
   const [savingMinimumPrice, setSavingMinimumPrice] = useState(false)
+  const [savingUnitFactor, setSavingUnitFactor] = useState(false)
   const [historyTab, setHistoryTab] = useState<'approved' | 'rejected'>('approved')
   const [viewingImage, setViewingImage] = useState<string | null>(null)
   const [flats, setFlats] = useState<Flat[]>([])
@@ -46,6 +73,7 @@ const AdminDashboard = () => {
   const [savingInitialReading, setSavingInitialReading] = useState<string | null>(null)
   const [viewingReceipt, setViewingReceipt] = useState<Reading | null>(null)
   const [flatIdToTenantName, setFlatIdToTenantName] = useState<Record<string, string>>({})
+  const [showSummary, setShowSummary] = useState(false)
 
   // Map each flat to its latest approved reading's image URL.
   // This is used to show "previous reading" images alongside the
@@ -86,23 +114,36 @@ const AdminDashboard = () => {
   const loadData = async (selectedFlat?: string) => {
     setLoading(true)
     try {
-      const [pendingItems, approvedItems, rejectedItems, currentTariff, currentMinimumPrice, allFlats] =
-        await Promise.all([
-          getPendingReadings(),
-          getApprovedReadings(selectedFlat || undefined),
-          getRejectedReadings(selectedFlat || undefined),
-          getGlobalTariff().catch(() => 0),
-          getMinimumPrice().catch(() => 250),
-          getAllFlats().catch((error) => {
-            console.error('Error loading flats:', error)
-            return []
-          }),
-        ])
+      const [
+        pendingItems,
+        approvedItems,
+        rejectedItems,
+        allApprovedItems,
+        allRejectedItems,
+        currentTariff,
+        currentMinimumPrice,
+        currentUnitFactor,
+        allFlats,
+      ] = await Promise.all([
+        getPendingReadings(),
+        getApprovedReadings(selectedFlat || undefined),
+        getRejectedReadings(selectedFlat || undefined),
+        getApprovedReadings(), // Get all approved readings for flatOptions
+        getRejectedReadings(), // Get all rejected readings for flatOptions
+        getGlobalTariff().catch(() => 0),
+        getMinimumPrice().catch(() => 250),
+        getUnitFactor().catch(() => 2.3),
+        getAllFlats().catch((error) => {
+          console.error('Error loading flats:', error)
+          return []
+        }),
+      ])
       setPending(pendingItems)
       setApprovedHistory(approvedItems)
       setRejectedHistory(rejectedItems)
       setGlobalTariff(currentTariff)
       setMinimumPrice(currentMinimumPrice)
+      setUnitFactor(currentUnitFactor)
 
       // Determine which flats still need an initial reading configured.
       // Show the "Initial Readings" section only for:
@@ -135,9 +176,10 @@ const AdminDashboard = () => {
       })
       setFlatIdToTenantName(tenantNameMap)
       
+      // Build flatOptions from ALL readings (not filtered) so dropdown always shows all flats
       const ids = new Set<string>()
-      approvedItems.forEach((r) => ids.add(r.flatId))
-      rejectedItems.forEach((r) => ids.add(r.flatId))
+      allApprovedItems.forEach((r) => ids.add(r.flatId))
+      allRejectedItems.forEach((r) => ids.add(r.flatId))
       setFlatOptions(Array.from(ids))
     } catch (error) {
       console.error(error)
@@ -190,12 +232,14 @@ const AdminDashboard = () => {
   }, [flatFilter])
 
   const handleApprove = async (reading: Reading) => {
-    const value =
-      corrections[reading.id] && corrections[reading.id].trim() !== ''
-        ? Number(corrections[reading.id])
-        : reading.ocrReading
-    if (value === null || Number.isNaN(value)) {
-      alert('Please enter a valid corrected reading.')
+    const raw = (corrections[reading.id] ?? '').trim()
+    if (!raw) {
+      alert('Please enter a corrected reading before approval.')
+      return
+    }
+    const value = Number(raw)
+    if (Number.isNaN(value)) {
+      alert('Please enter a valid numeric corrected reading.')
       return
     }
     setSubmitting(reading.id)
@@ -278,6 +322,18 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleSaveUnitFactor = async () => {
+    setSavingUnitFactor(true)
+    try {
+      await updateUnitFactor(unitFactor)
+      await loadData(flatFilter)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update unit factor')
+    } finally {
+      setSavingUnitFactor(false)
+    }
+  }
+
   const handleSaveInitialReading = async (flatId: string) => {
     setSavingInitialReading(flatId)
     try {
@@ -303,7 +359,20 @@ const AdminDashboard = () => {
   if (!user) return null
 
   return (
-    <Layout username={user.username} role="admin" subtitle="Review and approve meter readings.">
+    <Layout
+      username={user.username}
+      role="admin"
+      subtitle="Review and approve meter readings."
+      summaryButton={
+        <button
+          className="btn btn-secondary"
+          type="button"
+          onClick={() => setShowSummary(true)}
+        >
+          View Summary
+        </button>
+      }
+    >
       <div className="section">
         <div className="card">
           <div className="card-header">
@@ -328,7 +397,8 @@ const AdminDashboard = () => {
             <div>
               <h2 className="card-title">Tariff</h2>
               <p className="card-subtitle">
-                Configure the global cost per unit/KG and minimum price. This applies to all flats for future approvals.
+                Configure the global cost per unit/KG, convicto factor, and minimum price. This
+                applies to all flats for future approvals.
               </p>
             </div>
           </div>
@@ -352,6 +422,27 @@ const AdminDashboard = () => {
                 onClick={handleSaveGlobalTariff}
               >
                 {savingGlobalTariff ? 'Saving…' : 'Save tariff'}
+              </button>
+            </div>
+            <label className="label" htmlFor="unit-factor">
+              Unit factor (Unit convicto K.g)
+            </label>
+            <div className="mobile-stack" style={{ gap: 8 }}>
+              <input
+                id="unit-factor"
+                className="input input-inline mobile-full-width"
+                type="number"
+                step="0.01"
+                value={unitFactor}
+                onChange={(e) => setUnitFactor(Number(e.target.value) || 0)}
+              />
+              <button
+                className="btn btn-secondary mobile-full-width"
+                type="button"
+                disabled={savingUnitFactor}
+                onClick={handleSaveUnitFactor}
+              >
+                {savingUnitFactor ? 'Saving…' : 'Save unit factor'}
               </button>
             </div>
             <label className="label" htmlFor="minimum-price">
@@ -482,7 +573,7 @@ const AdminDashboard = () => {
           <div className="card-header">
             <div>
               <h2 className="card-title">Pending readings</h2>
-              <p className="card-subtitle">OCR + image proof. Approve or reject.</p>
+              <p className="card-subtitle">Image proof only. Enter the reading manually.</p>
             </div>
             <span className="pill">{pending.length} pending</span>
           </div>
@@ -497,15 +588,9 @@ const AdminDashboard = () => {
                   <div className="card-header">
                     <div>
                       <p className="subtitle">Flat {reading.flatId}</p>
-                      <h3 className="card-title">
-                        OCR:{' '}
-                        {reading.ocrReading !== null && reading.ocrReading !== undefined
-                          ? formatNumber(reading.ocrReading)
-                          : 'N/A'}
-                      </h3>
-                      {reading.ocrConfidence ? (
-                        <span className="pill">Confidence {reading.ocrConfidence.toFixed(0)}%</span>
-                      ) : null}
+                      <p className="muted small">
+                        Review the photo and enter the correct meter reading below.
+                      </p>
                     </div>
                     <div className="mobile-stack" style={{ gap: 8 }}>
                       <button
@@ -634,8 +719,8 @@ const AdminDashboard = () => {
                         <th>Previous</th>
                         <th>Reading</th>
                         <th>Units</th>
-                        <th>Amount</th>
                         <th>Tariff used</th>
+                        <th>Grand Total</th>
                         <th>Approved</th>
                         <th>Image</th>
                         <th>Receipt</th>
@@ -654,8 +739,8 @@ const AdminDashboard = () => {
                               : formatNumber(item.ocrReading)}
                           </td>
                           <td>{formatNumber(item.unitsUsed)}</td>
-                          <td>{formatNumber(item.amount)}</td>
                           <td>{formatNumber(item.tariffAtApproval)}</td>
+                          <td>₹ {formatNumber(calculateGrandTotal(item))}</td>
                           <td>
                             {item.approvedAt ? new Date(item.approvedAt).toLocaleString() : '—'}
                           </td>
@@ -738,12 +823,12 @@ const AdminDashboard = () => {
                         <span className="mobile-card-value">{formatNumber(item.unitsUsed)}</span>
                       </div>
                       <div className="mobile-card-row">
-                        <span className="mobile-card-label">Amount</span>
-                        <span className="mobile-card-value">{formatNumber(item.amount)}</span>
-                      </div>
-                      <div className="mobile-card-row">
                         <span className="mobile-card-label">Tariff</span>
                         <span className="mobile-card-value">{formatNumber(item.tariffAtApproval)}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Grand Total</span>
+                        <span className="mobile-card-value">₹ {formatNumber(calculateGrandTotal(item))}</span>
                       </div>
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Approved</span>
@@ -892,6 +977,12 @@ const AdminDashboard = () => {
           reading={viewingReceipt}
           occupantName={flatIdToTenantName[viewingReceipt.flatId] || null}
           onClose={() => setViewingReceipt(null)}
+        />
+      )}
+      {showSummary && (
+        <SummaryModal
+          approvedReadings={approvedHistory}
+          onClose={() => setShowSummary(false)}
         />
       )}
     </Layout>

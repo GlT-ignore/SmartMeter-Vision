@@ -18,6 +18,7 @@ const AdminUsersPage = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadUsers()
@@ -95,6 +96,22 @@ const AdminUsersPage = () => {
     }
   }
 
+  const visibleUsers: User[] = users
+    .filter((u) => {
+      const term = searchQuery.trim().toLowerCase()
+      if (!term) return true
+      return u.username.toLowerCase().includes(term)
+    })
+    .slice()
+    .sort((a, b) => {
+      // Keep admin users at the top, then sort remaining usernames alphabetically.
+      const aIsAdmin = a.role === 'admin'
+      const bIsAdmin = b.role === 'admin'
+      if (aIsAdmin && !bIsAdmin) return -1
+      if (!aIsAdmin && bIsAdmin) return 1
+      return a.username.toLowerCase().localeCompare(b.username.toLowerCase())
+    })
+
   if (!user) return null
 
   return (
@@ -125,6 +142,25 @@ const AdminUsersPage = () => {
             <p className="muted">Loading users...</p>
           ) : (
             <div className="stack">
+              <div className="mobile-stack" style={{ gap: 8, maxWidth: 420 }}>
+                <input
+                  className="input input-inline mobile-full-width"
+                  type="text"
+                  placeholder="Search by username"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <button
+                  className="btn btn-tertiary mobile-full-width"
+                  type="button"
+                  // Filtering happens live as you type; this button is mainly
+                  // here for UX and does not need extra logic.
+                  onClick={() => setSearchQuery((prev) => prev.trim())}
+                >
+                  Search
+                </button>
+              </div>
+
               {/* Desktop table view */}
               <div className="table-container hide-on-mobile">
                 <table className="table">
@@ -136,7 +172,7 @@ const AdminUsersPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
+                    {visibleUsers.map((u) => (
                       <tr key={u.id}>
                         <td>
                           {editingUserId === u.id ? (
@@ -209,7 +245,7 @@ const AdminUsersPage = () => {
 
               {/* Mobile card view */}
               <div className="mobile-card-list show-on-mobile">
-                {users.map((u) => (
+                {visibleUsers.map((u) => (
                   <div key={u.id} className="mobile-card-item">
                     {editingUserId === u.id ? (
                       <div className="stack">

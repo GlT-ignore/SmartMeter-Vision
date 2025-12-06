@@ -1,7 +1,6 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { createReadingFromImage, uploadMeterImage } from '../services/readings'
-import { extractReadingFromFile } from '../services/ocr'
 
 interface Props {
   flatId: string
@@ -12,7 +11,6 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [detected, setDetected] = useState<{ value: number | null; confidence: number | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
@@ -25,13 +23,9 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
     setMessage(null)
     setUploading(true)
     try {
-      const ocr = await extractReadingFromFile(file)
-      setDetected(ocr)
       const imageUrl = await uploadMeterImage(flatId, file)
-      await createReadingFromImage(flatId, imageUrl, ocr.value, ocr.confidence ?? undefined)
-      setMessage(
-        `Uploaded. Detected reading: ${ocr.value ?? 'N/A'}${ocr.confidence ? ` (confidence ${ocr.confidence.toFixed(0)}%)` : ''}`,
-      )
+      await createReadingFromImage(flatId, imageUrl)
+      setMessage('Image uploaded successfully. Your reading will be reviewed by an admin.')
       setFile(null)
       if (onComplete) onComplete()
     } catch (err) {
@@ -58,14 +52,8 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
         <p className="small">Tip: Take a clear, well-lit photo. Mobile camera capture is supported.</p>
       </div>
       <button className="btn btn-primary" type="submit" disabled={uploading}>
-        {uploading ? 'Uploading…' : 'Upload & Run OCR'}
+        {uploading ? 'Uploading…' : 'Upload meter photo'}
       </button>
-      {detected ? (
-        <div className="pill">
-          Detected: {detected.value ?? 'N/A'}{' '}
-          {detected.confidence ? `(confidence ${detected.confidence.toFixed(0)}%)` : ''}
-        </div>
-      ) : null}
       {message ? <div className="status approved">{message}</div> : null}
       {error ? <div className="status rejected">{error}</div> : null}
     </form>

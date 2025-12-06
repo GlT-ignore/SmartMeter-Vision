@@ -9,7 +9,7 @@ interface Props {
   occupantName?: string | null
 }
 
-const UNIT_CONVERSION_KG = 2.3
+const DEFAULT_UNIT_CONVERSION_KG = 2.3
 const DEFAULT_MINIMUM_CHARGE = 25
 const DUE_DATE_OFFSET_DAYS = 5
 
@@ -20,7 +20,8 @@ const formatDateOnly = (timestamp?: number) => {
 
 const formatNumber = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
-  return value.toFixed(3).replace(/\.000$/, '.000').replace(/(\.\d\d\d)\d+$/, '$1')
+  // Format to 3 decimal places and remove trailing zeros
+  return value.toFixed(3).replace(/\.?0+$/, '')
 }
 
 const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
@@ -35,9 +36,10 @@ const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
     : undefined
 
   const tariffPerKg = reading.tariffAtApproval ?? 0
+  const unitFactor = reading.unitFactorAtApproval ?? DEFAULT_UNIT_CONVERSION_KG
 
   const kgConsumed = units
-  const totalKg = kgConsumed * UNIT_CONVERSION_KG
+  const totalKg = kgConsumed * unitFactor
   const energyAmount = totalKg * tariffPerKg
 
   const minimumCharge = DEFAULT_MINIMUM_CHARGE
@@ -135,7 +137,7 @@ const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
               <div className="receipt-row">
                 <span className="receipt-label">Unit × Unit convicto K.g</span>
                 <span className="receipt-value">
-                  {formatNumber(kgConsumed)} × {UNIT_CONVERSION_KG.toFixed(2)} ={' '}
+                  {formatNumber(kgConsumed)} × {formatNumber(unitFactor)} ={' '}
                   {formatNumber(totalKg)}
                 </span>
               </div>

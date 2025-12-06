@@ -9,9 +9,10 @@ interface Props {
   role?: UserRole
   subtitle?: string
   name?: string | null
+  summaryButton?: ReactNode
 }
 
-const Layout = ({ children, username, role, subtitle, name }: Props) => {
+const Layout = ({ children, username, role, subtitle, name, summaryButton }: Props) => {
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -28,6 +29,7 @@ const Layout = ({ children, username, role, subtitle, name }: Props) => {
             {subtitle ? <p className="page-subtitle">{subtitle}</p> : null}
           </div>
           <div className="layout-meta">
+            {summaryButton}
             {role ? <span className="badge">Role: {role}</span> : null}
             {name ? <span className="pill">Name: {name}</span> : null}
             {username ? <span className="pill">{username}</span> : null}

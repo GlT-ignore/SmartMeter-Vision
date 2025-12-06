@@ -51,6 +51,12 @@ export interface Reading {
    */
   tariffAtApproval?: number | null
   /**
+   * Unit conversion factor used when this reading was approved
+   * (e.g. "convitco Kg"). Stored so receipts remain stable even if
+   * the global factor changes later.
+   */
+  unitFactorAtApproval?: number | null
+  /**
    * Calendar year and month of the submission, e.g. "2025-03".
    * Used to enforce one-reading-per-month-per-tenant, unless rejected.
    */
