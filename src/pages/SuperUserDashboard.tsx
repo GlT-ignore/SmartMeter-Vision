@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllUsers, updateUserPassword } from '../services/users'
 import { getCurrentSuperUser, logoutSuperUser } from '../services/superUserAuth'
@@ -7,8 +7,8 @@ import type { User } from '../types/models'
 
 const SuperUserDashboard = () => {
   const navigate = useNavigate()
-  // Memoize superUser to prevent unnecessary re-renders
-  const superUser = useMemo(() => getCurrentSuperUser(), [])
+  // Use useState with initializer to only read once on mount
+  const [superUser] = useState(() => getCurrentSuperUser())
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null)
@@ -17,18 +17,12 @@ const SuperUserDashboard = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
-  useEffect(() => {
-    if (!superUser) {
-      navigate('/superuser/login', { replace: true })
-      return
-    }
-    // Only load admin users once when component mounts
-    loadAdminUsers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty dependency array - only run on mount
-
-  const loadAdminUsers = async () => {
+  const loadAdminUsers = useCallback(async () => {
+    if (hasLoadedRef.current) return // Prevent multiple loads
+    hasLoadedRef.current = true
+    
     setLoading(true)
     try {
       const allUsers = await getAllUsers()
@@ -40,7 +34,15 @@ const SuperUserDashboard = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!superUser) {
+      navigate('/superuser/login', { replace: true })
+      return
+    }
+    loadAdminUsers()
+  }, [superUser, navigate, loadAdminUsers])
 
   const handleSelectAdmin = (adminId: string) => {
     setSelectedAdminId(adminId)
