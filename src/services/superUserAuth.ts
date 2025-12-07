@@ -1,8 +1,7 @@
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
-  signOut as firebaseSignOut,
-  type User as FirebaseUser
+  signOut as firebaseSignOut
 } from 'firebase/auth'
 import { auth } from './firebase'
 

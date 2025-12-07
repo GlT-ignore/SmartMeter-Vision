@@ -7,7 +7,7 @@ import type { User } from '../types/models'
 
 const SuperUserDashboard = () => {
   const navigate = useNavigate()
-  const [superUser, setSuperUser] = useState(getCurrentSuperUser())
+  const superUser = getCurrentSuperUser()
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null)
