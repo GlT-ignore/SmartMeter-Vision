@@ -77,9 +77,23 @@ export async function createReadingFromImage(flatId: string, imageUrl: string): 
   const now = Date.now()
   const yearMonth = getYearMonth(now)
 
-  // NOTE: Monthly upload limit temporarily disabled to allow testing
-  // of previous-reading / initial-reading logic. Re-introduce the
-  // per-month guard here when enforcing limits again.
+  // Enforce one upload per calendar month (per flat) without requiring a composite index.
+  const existingSnap = await getDocs(query(readingsRef, where('flatId', '==', flatId)))
+  const uploadsThisMonth = existingSnap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Reading, 'id'>) }))
+    .filter((r) => (r.yearMonth ?? getYearMonth(r.createdAt || 0)) === yearMonth)
+    // Only block if there is a pending or approved reading this month.
+    .filter((r) => (r.status ?? 'pending') !== 'rejected')
+
+  if (uploadsThisMonth.length > 0) {
+    const latest = uploadsThisMonth.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0]
+    const dateStr = latest.createdAt ? new Date(latest.createdAt).toLocaleDateString() : null
+    throw new Error(
+      dateStr
+        ? `Upload limit reached. You already have a pending/approved upload on ${dateStr}. Try again next month.`
+        : 'Upload limit reached for this calendar month (pending/approved reading exists).',
+    )
+  }
 
   await addDoc(readingsRef, {
     flatId,

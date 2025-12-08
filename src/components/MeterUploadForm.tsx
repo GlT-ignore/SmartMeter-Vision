@@ -50,6 +50,7 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
         <p className="small">Tip: Take a clear, well-lit photo. Mobile camera capture is supported.</p>
+        <p className="small muted">Limit: one upload per calendar month.</p>
       </div>
       <button className="btn btn-primary" type="submit" disabled={uploading}>
         {uploading ? 'Uploading…' : 'Upload meter photo'}
