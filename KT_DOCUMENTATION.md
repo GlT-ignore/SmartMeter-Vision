@@ -17,12 +17,13 @@
 
 ## Project Overview
 
-**SmartMeter Vision** is a web application for managing gas meter readings in a multi-tenant building/apartment complex. The system allows tenants to upload meter photos, admins to review and approve readings, and generates bills/receipts automatically.
+**SmartMeter Vision** is a web application for managing gas meter readings in a multi-tenant building/apartment complex. The system allows tenants to upload meter photos with reading values, admins to review and approve readings, and generates bills/receipts automatically.
 
 ### Key Capabilities
 - 📸 **Image Upload**: Tenants upload meter photos via mobile/web
-- 🔍 **Manual Review**: Admins manually enter readings from photos (OCR available but not primary)
-- ✅ **Approval Workflow**: Admin approves/rejects readings with corrections
+- 📝 **Tenant Reading Entry**: Tenants must enter meter reading value when uploading (required field)
+- 🔍 **Cross-Verification**: Admin sees tenant-entered reading and can verify against photo
+- ✅ **Approval Workflow**: Admin approves/rejects readings with corrections or uses tenant reading
 - 💰 **Automatic Billing**: Calculates units consumed and bill amounts
 - 🧾 **Receipt Generation**: PDF receipts for approved readings
 - 📊 **Monthly Summaries**: Admin can view/download monthly billing summaries
@@ -176,6 +177,7 @@ Stores all meter reading submissions.
   
   // Reading values
   ocrReading: number | null     // OCR-extracted reading (optional, not primary)
+  tenantReading?: number | null // Meter reading value entered by tenant (required on upload)
   correctedReading: number | null // Admin-entered corrected reading
   previousReading: number | null   // Previous approved reading value
   
@@ -243,9 +245,14 @@ Stores global system configuration.
 - **Process**:
   1. Click "Upload meter photo"
   2. Select image file (or use mobile camera)
-  3. Image is compressed and stored as base64 in Firestore
-  4. Reading created with status `pending`
-  5. Admin is notified (via real-time listener)
+  3. **Enter meter reading value** (required) - Enter the reading shown in the photo
+  4. Image is compressed and stored as base64 in Firestore
+  5. Reading created with status `pending` and `tenantReading` field populated
+  6. Admin is notified (via real-time listener)
+
+**Requirements**:
+- Meter reading value is **mandatory** - tenants must enter the reading from the photo
+- Reading value is validated as a number before submission
 
 **Limitations**:
 - One upload per calendar month per flat
@@ -256,7 +263,8 @@ Stores global system configuration.
 - **Location**: Tenant Dashboard (`/tenant`)
 - **Shows**:
   - All readings (pending, approved, rejected)
-  - Current reading value
+  - Tenant-entered reading (for pending readings)
+  - Approved reading value (for approved readings)
   - Units consumed
   - Bill amount
   - Status badges
@@ -287,10 +295,19 @@ Stores global system configuration.
 - **Location**: Admin Dashboard (`/admin`)
 - **Process**:
   1. View all pending readings
-  2. See current photo and previous approved photo side-by-side
-  3. Enter corrected reading manually
-  4. Optionally enter rejection reason
-  5. Click "Approve" or "Reject"
+  2. See **tenant-entered reading** displayed prominently
+  3. See current photo and previous approved photo side-by-side
+  4. **Corrected reading field is pre-filled** with tenant's reading value
+  5. Admin can:
+     - Approve using tenant's reading (just click "Approve" if correct)
+     - Override by entering a different value in corrected reading field
+  6. Optionally enter rejection reason
+  7. Click "Approve" or "Reject"
+
+**Tenant Reading Display**:
+- Tenant-entered reading is shown in the card header with label "📝 Tenant entered reading"
+- Corrected reading input is pre-filled with tenant reading for quick approval
+- Admin can cross-verify tenant reading with the photo and override if needed
 
 **Approval Calculation**:
 - `unitsUsed` = `correctedReading` - `previousReading`
@@ -401,7 +418,12 @@ Stores global system configuration.
 ## Editable Fields & Configuration
 
 ### Tenant-Editable Fields
-**None** - Tenants can only upload photos and view their data.
+
+#### 1. **Reading Fields** (during upload)
+- `tenantReading`: **Required** meter reading value entered when uploading photo
+  - Must be a valid number
+  - Entered before submitting the upload
+  - Displayed to admin for cross-verification
 
 ---
 
@@ -461,23 +483,35 @@ Stores global system configuration.
 1. **Tenant logs in** → Redirected to `/tenant`
 2. **Clicks "Upload meter photo"**
 3. **Selects image file** → Image compressed to base64
-4. **System checks**: Is there a pending/approved reading this month?
+4. **Enters meter reading value** (required field)
+   - Must enter the reading shown in the photo
+   - Validated as a number before submission
+5. **System checks**: Is there a pending/approved reading this month?
    - If YES → Error: "Upload limit reached"
    - If NO → Continue
-5. **Reading created**:
+6. **Reading created**:
    - `status`: `pending`
    - `imageUrl`: Base64 data URL
+   - `tenantReading`: Tenant-entered reading value
    - `yearMonth`: Current month (e.g., "2025-03")
    - `createdAt`: Current timestamp
-6. **Admin sees reading** in pending list (real-time update)
+7. **Admin sees reading** in pending list (real-time update)
+   - Tenant reading displayed prominently
+   - Corrected reading field pre-filled with tenant reading
 
 ---
 
 ### Workflow 2: Admin Approves Reading
 
 1. **Admin logs in** → Redirected to `/admin`
-2. **Views pending readings** → Sees photo and previous photo
-3. **Enters corrected reading** manually
+2. **Views pending readings** → Sees:
+   - Tenant-entered reading displayed prominently
+   - Current photo and previous photo
+   - Corrected reading field pre-filled with tenant reading
+3. **Admin cross-verifies**:
+   - Compares tenant reading with photo
+   - If tenant reading matches photo → Can approve directly (field already filled)
+   - If tenant reading is wrong → Enters corrected reading manually
 4. **Clicks "Approve"**
 5. **System calculates**:
    - Finds previous approved reading for same flat
@@ -488,7 +522,7 @@ Stores global system configuration.
    - If `amount < minimumPrice`, set `amount = minimumPrice`
 6. **Reading updated**:
    - `status`: `approved`
-   - `correctedReading`: Admin-entered value
+   - `correctedReading`: Admin-entered value (or tenant reading if not overridden)
    - `previousReading`: Calculated previous value
    - `unitsUsed`: Calculated
    - `amount`: Calculated
@@ -792,11 +826,15 @@ Output will be in `dist/` folder. Deploy to Vercel, Netlify, or any static hosti
 
 1. Login as admin
 2. View pending readings
-3. Click "Current photo" to view meter image
-4. Click "Previous photo" to compare (if available)
-5. Enter "Corrected reading" manually
-6. Optionally enter "Rejection reason" (if rejecting)
-7. Click "Approve" or "Reject"
+3. See tenant-entered reading displayed in the card header
+4. Click "Current photo" to view meter image
+5. Click "Previous photo" to compare (if available)
+6. Review corrected reading field (pre-filled with tenant reading)
+7. Cross-verify tenant reading with photo:
+   - If correct → Click "Approve" directly
+   - If incorrect → Enter corrected reading manually, then click "Approve"
+8. Optionally enter "Rejection reason" (if rejecting)
+9. Click "Approve" or "Reject"
 
 ### Re-opening an Approved Reading
 
