@@ -144,6 +144,15 @@ const AdminDashboard = () => {
       setGlobalTariff(currentTariff)
       setMinimumPrice(currentMinimumPrice)
       setUnitFactor(currentUnitFactor)
+      
+      // Pre-fill corrections with tenant reading if available
+      const initialCorrections: Record<string, string> = {}
+      pendingItems.forEach((reading) => {
+        if (reading.tenantReading !== null && reading.tenantReading !== undefined) {
+          initialCorrections[reading.id] = formatNumber(reading.tenantReading)
+        }
+      })
+      setCorrections(initialCorrections)
 
       // Determine which flats still need an initial reading configured.
       // Show the "Initial Readings" section only for:
@@ -586,6 +595,11 @@ const AdminDashboard = () => {
                       <p className="muted small">
                         Review the photo and enter the correct meter reading below.
                       </p>
+                      {reading.tenantReading !== null && reading.tenantReading !== undefined && (
+                        <p className="muted small" style={{ marginTop: 4, fontWeight: 500 }}>
+                          📝 Tenant entered reading: <strong>{formatNumber(reading.tenantReading)}</strong>
+                        </p>
+                      )}
                     </div>
                     <div className="mobile-stack" style={{ gap: 8 }}>
                       <button
@@ -613,17 +627,32 @@ const AdminDashboard = () => {
                   <div className="stack">
                     <label className="label" htmlFor={`corrected-${reading.id}`}>
                       Corrected reading
+                      {reading.tenantReading !== null && reading.tenantReading !== undefined && (
+                        <span className="muted small" style={{ marginLeft: 8 }}>
+                          (Pre-filled with tenant reading: {formatNumber(reading.tenantReading)})
+                        </span>
+                      )}
                     </label>
                     <input
                       id={`corrected-${reading.id}`}
                       className="input"
                       type="number"
-                      placeholder="Enter corrected reading"
+                      step="0.001"
+                      placeholder={
+                        reading.tenantReading !== null && reading.tenantReading !== undefined
+                          ? `Tenant reading: ${formatNumber(reading.tenantReading)}`
+                          : 'Enter corrected reading'
+                      }
                       value={corrections[reading.id] ?? ''}
                       onChange={(e) =>
                         setCorrections((prev) => ({ ...prev, [reading.id]: e.target.value }))
                       }
                     />
+                    {reading.tenantReading !== null && reading.tenantReading !== undefined && (
+                      <p className="small muted">
+                        💡 You can approve with the tenant's reading or override it with a different value.
+                      </p>
+                    )}
                     <label className="label" htmlFor={`reject-reason-${reading.id}`}>
                       Rejection reason
                     </label>

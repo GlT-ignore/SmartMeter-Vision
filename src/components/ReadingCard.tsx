@@ -42,6 +42,12 @@ const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
           <span className={`status ${reading.status}`}>{reading.status}</span>
         </div>
         <div className="stack">
+          {reading.tenantReading !== null && reading.tenantReading !== undefined && reading.status === 'pending' && (
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              <strong>Your reading:</strong>{' '}
+              <span>{formatNumber(reading.tenantReading)}</span>
+            </div>
+          )}
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <strong>Approved:</strong>{' '}
             <span>

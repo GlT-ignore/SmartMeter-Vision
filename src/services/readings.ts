@@ -72,7 +72,7 @@ export async function uploadMeterImage(_flatId: string, file: File): Promise<str
   return await compressImage(file)
 }
 
-export async function createReadingFromImage(flatId: string, imageUrl: string): Promise<void> {
+export async function createReadingFromImage(flatId: string, imageUrl: string, tenantReading?: number | null): Promise<void> {
   const readingsRef = collection(db, 'readings')
   const now = Date.now()
   const yearMonth = getYearMonth(now)
@@ -101,6 +101,7 @@ export async function createReadingFromImage(flatId: string, imageUrl: string): 
     // OCR is no longer used; keep fields for backwards compatibility.
     ocrReading: null,
     ocrConfidence: null,
+    tenantReading: tenantReading ?? null,
     correctedReading: null,
     previousReading: null,
     unitsUsed: null,

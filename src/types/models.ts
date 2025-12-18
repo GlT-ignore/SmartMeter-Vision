@@ -37,6 +37,11 @@ export interface Reading {
   id: string
   flatId: string
   ocrReading: number | null
+  /**
+   * Meter reading value entered by the tenant when uploading.
+   * Admin can cross-verify this with the photo and override if needed.
+   */
+  tenantReading?: number | null
   correctedReading: number | null
   previousReading: number | null
   unitsUsed: number | null

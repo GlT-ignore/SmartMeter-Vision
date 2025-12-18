@@ -47,6 +47,48 @@ const formatMonthYear = (monthYear: string): string => {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
+// Custom flat order mapping - flats not in this list will appear at the end
+const FLAT_ORDER: Record<string, number> = {
+  'S1': 1,
+  'A1': 2,
+  'B1': 3,
+  'C1': 4,
+  'D1': 5,
+  'Guest House': 6,
+  'H1': 7,
+  'A2': 8,
+  'B2': 9,
+  'C2': 10,
+  'D2': 11,
+  'E2': 12,
+  'F2': 13,
+  'G2': 14,
+  'H2': 15,
+  'A3': 16,
+  'B3': 17,
+  'C3': 18,
+  'D3': 19,
+  'E3': 20,
+  'F3': 21,
+  'G3': 22,
+  'H3': 23,
+  'A4': 24,
+  'B4': 25,
+  'C4': 26,
+  'D4': 27,
+  'E4': 28,
+  'F4': 29,
+  'G4': 30,
+  'H4': 31,
+  'P1': 32,
+  'P2': 33,
+}
+
+// Get sort order for a flat ID (returns Infinity if not in the custom order)
+const getFlatSortOrder = (flatId: string): number => {
+  return FLAT_ORDER[flatId] ?? Infinity
+}
+
 const SummaryModal = ({ approvedReadings, onClose }: Props) => {
   const [selectedMonth, setSelectedMonth] = useState<string>('')
   const [flats, setFlats] = useState<Record<string, string>>({}) // flatId -> tenantName
@@ -100,7 +142,20 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
         return monthYear === selectedMonth
       })
       .sort((a, b) => {
-        // Sort by flatId for consistent ordering
+        // Sort by custom flat order, then alphabetically for flats not in the custom order
+        const orderA = getFlatSortOrder(a.flatId)
+        const orderB = getFlatSortOrder(b.flatId)
+        
+        // If both flats are in the custom order, sort by their order
+        if (orderA !== Infinity && orderB !== Infinity) {
+          return orderA - orderB
+        }
+        
+        // If only one is in the custom order, it comes first
+        if (orderA !== Infinity) return -1
+        if (orderB !== Infinity) return 1
+        
+        // If neither is in the custom order, sort alphabetically
         return a.flatId.localeCompare(b.flatId)
       })
   }, [approvedReadings, selectedMonth])
@@ -130,21 +185,67 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
 
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
-
-    const imgWidth = pageWidth - 20
+    
+    // Define margins (top, bottom, left, right)
+    const marginTop = 10
+    const marginBottom = 10
+    const marginLeft = 10
+    const marginRight = 10
+    
+    // Calculate usable area per page
+    const usablePageHeight = pageHeight - marginTop - marginBottom
+    const imgWidth = pageWidth - marginLeft - marginRight
     const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-    let heightLeft = imgHeight
-    let position = 10
-
-    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight + 10
-      doc.addPage()
-      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
+    // Calculate how many pages we need
+    const totalPages = Math.ceil(imgHeight / usablePageHeight)
+    
+    // Render image across multiple pages with proper margins
+    let yOffset = 0 // Current Y offset in the full image (in mm)
+    
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) {
+        doc.addPage()
+      }
+      
+      // Calculate how much of the image to show on this page
+      const remainingHeight = imgHeight - yOffset
+      const heightOnThisPage = Math.min(usablePageHeight, remainingHeight)
+      
+      // Calculate the source Y position in pixels
+      const sourceY = (yOffset / imgHeight) * canvas.height
+      const sourceHeight = (heightOnThisPage / imgHeight) * canvas.height
+      
+      // Create a temporary canvas for this page's portion
+      const pageCanvas = document.createElement('canvas')
+      pageCanvas.width = canvas.width
+      pageCanvas.height = Math.ceil(sourceHeight)
+      const pageCtx = pageCanvas.getContext('2d')
+      
+      if (pageCtx) {
+        // Draw the portion of the image for this page
+        pageCtx.drawImage(
+          canvas,
+          0, sourceY, canvas.width, sourceHeight, // source rectangle
+          0, 0, canvas.width, Math.ceil(sourceHeight) // destination rectangle
+        )
+        
+        const pageImgData = pageCanvas.toDataURL('image/png')
+        
+        // Add to PDF with proper margins - always start at marginTop
+        // Use heightOnThisPage directly since it's already in mm
+        doc.addImage(
+          pageImgData,
+          'PNG',
+          marginLeft,
+          marginTop,
+          imgWidth,
+          heightOnThisPage
+        )
+      }
+      
+      // Move to next page's starting position
+      yOffset += heightOnThisPage
     }
 
     const fileName = `summary-${selectedMonth || 'all'}.pdf`
