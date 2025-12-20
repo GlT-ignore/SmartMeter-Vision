@@ -31,7 +31,7 @@ const LoginPage = () => {
           <div className="card-header">
             <div>
               <h1 className="card-title">SmartMeter Vision</h1>
-              <p className="card-subtitle">Login to continue</p>
+              <p className="card-subtitle">Please Login.</p>
             </div>
           </div>
           <form className="stack" onSubmit={handleSubmit}>
