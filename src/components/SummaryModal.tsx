@@ -22,11 +22,11 @@ const calculateGrandTotal = (reading: Reading): number => {
   const units = reading.unitsUsed ?? 0
   const unitFactor = reading.unitFactorAtApproval ?? DEFAULT_UNIT_CONVERSION_KG
   const tariffPerKg = reading.tariffAtApproval ?? 0
-  
+
   const totalKg = units * unitFactor
   const energyAmount = totalKg * tariffPerKg
   const grandTotal = energyAmount + DEFAULT_MINIMUM_CHARGE
-  
+
   return grandTotal
 }
 
@@ -145,20 +145,62 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
         // Sort by custom flat order, then alphabetically for flats not in the custom order
         const orderA = getFlatSortOrder(a.flatId)
         const orderB = getFlatSortOrder(b.flatId)
-        
+
         // If both flats are in the custom order, sort by their order
         if (orderA !== Infinity && orderB !== Infinity) {
           return orderA - orderB
         }
-        
+
         // If only one is in the custom order, it comes first
         if (orderA !== Infinity) return -1
         if (orderB !== Infinity) return 1
-        
+
         // If neither is in the custom order, sort alphabetically
         return a.flatId.localeCompare(b.flatId)
       })
   }, [approvedReadings, selectedMonth])
+
+  // Combine all flats with their readings (if available) for the selected month
+  // This ensures ALL flats are shown in the summary, even if they don't have invoices
+  const allFlatsWithData = useMemo(() => {
+    if (!selectedMonth) return []
+
+    // Create a map of flatId -> reading for quick lookup
+    const readingsByFlatId = new Map<string, Reading>()
+    filteredReadings.forEach((reading) => {
+      readingsByFlatId.set(reading.flatId, reading)
+    })
+
+    // Get all unique flat IDs (from both flats state and readings)
+    const allFlatIds = new Set<string>()
+    Object.keys(flats).forEach((flatId) => allFlatIds.add(flatId))
+    filteredReadings.forEach((reading) => allFlatIds.add(reading.flatId))
+
+    // Create combined data for each flat
+    const combined = Array.from(allFlatIds).map((flatId) => ({
+      flatId,
+      tenantName: flats[flatId] || '',
+      reading: readingsByFlatId.get(flatId) || null,
+    }))
+
+    // Sort by custom flat order
+    return combined.sort((a, b) => {
+      const orderA = getFlatSortOrder(a.flatId)
+      const orderB = getFlatSortOrder(b.flatId)
+
+      // If both flats are in the custom order, sort by their order
+      if (orderA !== Infinity && orderB !== Infinity) {
+        return orderA - orderB
+      }
+
+      // If only one is in the custom order, it comes first
+      if (orderA !== Infinity) return -1
+      if (orderB !== Infinity) return 1
+
+      // If neither is in the custom order, sort alphabetically
+      return a.flatId.localeCompare(b.flatId)
+    })
+  }, [flats, filteredReadings, selectedMonth])
 
   // Calculate total bill amount
   const totalBillAmount = useMemo(() => {
@@ -183,13 +225,13 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
 
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
-    
+
     // Define margins (top, bottom, left, right)
     const marginTop = 10
     const marginBottom = 10
     const marginLeft = 10
     const marginRight = 10
-    
+
     // Calculate usable area per page
     const usablePageHeight = pageHeight - marginTop - marginBottom
     const imgWidth = pageWidth - marginLeft - marginRight
@@ -197,29 +239,29 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
 
     // Calculate how many pages we need
     const totalPages = Math.ceil(imgHeight / usablePageHeight)
-    
+
     // Render image across multiple pages with proper margins
     let yOffset = 0 // Current Y offset in the full image (in mm)
-    
+
     for (let page = 0; page < totalPages; page++) {
       if (page > 0) {
         doc.addPage()
       }
-      
+
       // Calculate how much of the image to show on this page
       const remainingHeight = imgHeight - yOffset
       const heightOnThisPage = Math.min(usablePageHeight, remainingHeight)
-      
+
       // Calculate the source Y position in pixels
       const sourceY = (yOffset / imgHeight) * canvas.height
       const sourceHeight = (heightOnThisPage / imgHeight) * canvas.height
-      
+
       // Create a temporary canvas for this page's portion
       const pageCanvas = document.createElement('canvas')
       pageCanvas.width = canvas.width
       pageCanvas.height = Math.ceil(sourceHeight)
       const pageCtx = pageCanvas.getContext('2d')
-      
+
       if (pageCtx) {
         // Draw the portion of the image for this page
         pageCtx.drawImage(
@@ -227,9 +269,9 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
           0, sourceY, canvas.width, sourceHeight, // source rectangle
           0, 0, canvas.width, Math.ceil(sourceHeight) // destination rectangle
         )
-        
+
         const pageImgData = pageCanvas.toDataURL('image/png')
-        
+
         // Add to PDF with proper margins - always start at marginTop
         // Use heightOnThisPage directly since it's already in mm
         doc.addImage(
@@ -241,7 +283,7 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
           heightOnThisPage
         )
       }
-      
+
       // Move to next page's starting position
       yOffset += heightOnThisPage
     }
@@ -306,20 +348,20 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredReadings.map((reading, index) => (
-                      <tr key={reading.id}>
+                    {allFlatsWithData.map((flatData, index) => (
+                      <tr key={flatData.flatId}>
                         <td>{index + 1}</td>
-                        <td>{reading.flatId}</td>
-                        <td>{flats[reading.flatId] || '—'}</td>
+                        <td>{flatData.flatId}</td>
+                        <td>{flatData.tenantName || '—'}</td>
                         <td style={{ textAlign: 'right' }}>
-                          {formatNumber(
-                            reading.correctedReading !== null && reading.correctedReading !== undefined
-                              ? reading.correctedReading
-                              : reading.ocrReading
-                          )}
+                          {flatData.reading ? formatNumber(
+                            flatData.reading.correctedReading !== null && flatData.reading.correctedReading !== undefined
+                              ? flatData.reading.correctedReading
+                              : flatData.reading.ocrReading
+                          ) : '—'}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          ₹ {formatNumber(calculateGrandTotal(reading))}
+                          {flatData.reading ? `₹ ${formatNumber(calculateGrandTotal(flatData.reading))}` : '₹ 0.00'}
                         </td>
                       </tr>
                     ))}
@@ -335,11 +377,11 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
             </div>
           )}
 
-          {selectedMonth && filteredReadings.length === 0 && (
-            <p className="muted">No approved readings found for the selected month.</p>
+          {selectedMonth && allFlatsWithData.length === 0 && (
+            <p className="muted">No flats found for the selected month.</p>
           )}
 
-          {selectedMonth && filteredReadings.length > 0 && (
+          {selectedMonth && allFlatsWithData.length > 0 && (
             <div className="mobile-stack" style={{ marginTop: 24, gap: 8 }}>
               <button
                 className="btn btn-primary mobile-full-width"
