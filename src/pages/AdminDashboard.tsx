@@ -758,7 +758,7 @@ const AdminDashboard = () => {
                           <td>{item.flatId}</td>
                           <td>{item.yearMonth ?? '—'}</td>
                           <td>
-                            {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
                           </td>
                           <td>{formatNumber(item.previousReading)}</td>
                           <td>
@@ -770,7 +770,7 @@ const AdminDashboard = () => {
                           <td>{formatNumber(item.tariffAtApproval)}</td>
                           <td>₹ {formatNumber(calculateGrandTotal(item))}</td>
                           <td>
-                            {item.approvedAt ? new Date(item.approvedAt).toLocaleString() : '—'}
+                            {item.approvedAt ? new Date(item.approvedAt).toLocaleDateString() : '—'}
                           </td>
                           <td>
                             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -837,7 +837,7 @@ const AdminDashboard = () => {
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Uploaded</span>
                         <span className="mobile-card-value" style={{ fontSize: 11 }}>
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
                         </span>
                       </div>
                       <div className="mobile-card-row">
@@ -867,7 +867,7 @@ const AdminDashboard = () => {
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Approved</span>
                         <span className="mobile-card-value" style={{ fontSize: 11 }}>
-                          {item.approvedAt ? new Date(item.approvedAt).toLocaleString() : '—'}
+                          {item.approvedAt ? new Date(item.approvedAt).toLocaleDateString() : '—'}
                         </span>
                       </div>
                       <div className="mobile-card-actions">
@@ -940,7 +940,7 @@ const AdminDashboard = () => {
                         </td>
                         <td>{item.rejectionReason ?? '—'}</td>
                         <td>
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
                         </td>
                         <td>
                           <button
@@ -987,7 +987,7 @@ const AdminDashboard = () => {
                     <div className="mobile-card-row">
                       <span className="mobile-card-label">Created</span>
                       <span className="mobile-card-value" style={{ fontSize: 11 }}>
-                        {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
                       </span>
                     </div>
                     <div className="mobile-card-actions">
