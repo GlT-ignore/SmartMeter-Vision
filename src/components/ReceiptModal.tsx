@@ -24,6 +24,21 @@ const formatNumber = (value: number | null | undefined): string => {
   return value.toFixed(3).replace(/\.?0+$/, '')
 }
 
+const getMonthYearFromTimestamp = (timestamp?: number): string => {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+const formatMonthYear = (monthYear: string): string => {
+  if (!monthYear) return ''
+  const [year, month] = monthYear.split('-')
+  const date = new Date(parseInt(year), parseInt(month) - 1)
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
 const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
   const receiptRef = useRef<HTMLDivElement | null>(null)
   const prev = reading.previousReading ?? 0
@@ -44,6 +59,10 @@ const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
 
   const minimumCharge = DEFAULT_MINIMUM_CHARGE
   const grandTotal = energyAmount + minimumCharge
+
+  // Determine the month/year string
+  const monthYearRaw = reading.yearMonth || getMonthYearFromTimestamp(readingDateTs)
+  const formattedMonthYear = formatMonthYear(monthYearRaw)
 
   const handleDownloadPdf = async () => {
     if (!receiptRef.current) return
@@ -84,8 +103,8 @@ const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
         <div className="receipt-container">
           <div className="receipt-paper" ref={receiptRef}>
             <div className="receipt-header">
-              <div className="receipt-title">GAS</div>
-              <div className="receipt-subtitle">Meter Reading Receipt</div>
+              <div className="receipt-title">GAS meter reading</div>
+              <div className="receipt-subtitle">received of {formattedMonthYear}</div>
             </div>
 
             <div className="receipt-meta">

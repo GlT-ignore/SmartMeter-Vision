@@ -172,62 +172,79 @@ const AdminUsersPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleUsers.map((u) => (
-                      <tr key={u.id}>
-                        <td>
-                          {editingUserId === u.id ? (
-                            <input
-                              className="input input-inline"
-                              type="text"
-                              value={newUsername}
-                              onChange={(e) => setNewUsername(e.target.value)}
-                            />
-                          ) : (
+                    {visibleUsers.map((u) => {
+                      if (editingUserId === u.id) {
+                        return (
+                          <tr key={u.id}>
+                            <td colSpan={3} style={{ background: 'var(--color-gray-50)' }}>
+                              <form onSubmit={(e) => handleUpdateUsername(e, u.id)}>
+                                <div className="grid-columns" style={{ alignItems: 'end', gap: 16 }}>
+                                  <div>
+                                    <label className="label small">Username</label>
+                                    <div className="row" style={{ gap: 8 }}>
+                                      <input
+                                        className="input"
+                                        type="text"
+                                        value={newUsername}
+                                        onChange={(e) => setNewUsername(e.target.value)}
+                                        placeholder="Username"
+                                      />
+                                      <button
+                                        className="btn btn-secondary"
+                                        type="submit"
+                                        disabled={submitting}
+                                      >
+                                        Save
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="label small">New Password</label>
+                                    <div className="row" style={{ gap: 8 }}>
+                                      <input
+                                        className="input"
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Set new password"
+                                      />
+                                      <button
+                                        className="btn btn-secondary"
+                                        type="button"
+                                        disabled={submitting || !newPassword}
+                                        onClick={() => handleResetPassword(u.id)}
+                                      >
+                                        Reset
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%', paddingBottom: 4 }}>
+                                    <button
+                                      className="btn btn-ghost"
+                                      type="button"
+                                      onClick={handleCancelEdit}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                        )
+                      }
+
+                      return (
+                        <tr key={u.id}>
+                          <td>
                             <strong>{u.username}</strong>
-                          )}
-                        </td>
-                        <td>
-                          <span className="pill">{u.role}</span>
-                        </td>
-                        <td>
-                          {editingUserId === u.id ? (
-                            <div className="stack">
-                              <div className="row" style={{ gap: 8 }}>
-                                <button
-                                  className="btn btn-secondary"
-                                  type="button"
-                                  disabled={submitting}
-                                  onClick={(e) => handleUpdateUsername(e, u.id)}
-                                >
-                                  {submitting ? 'Saving...' : 'Save username'}
-                                </button>
-                                <button
-                                  className="btn btn-ghost"
-                                  type="button"
-                                  onClick={handleCancelEdit}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                              <div className="row" style={{ gap: 8 }}>
-                                <input
-                                  className="input input-inline"
-                                  type="password"
-                                  placeholder="New password"
-                                  value={newPassword}
-                                  onChange={(e) => setNewPassword(e.target.value)}
-                                />
-                                <button
-                                  className="btn btn-secondary"
-                                  type="button"
-                                  disabled={submitting || !newPassword}
-                                  onClick={() => handleResetPassword(u.id)}
-                                >
-                                  {submitting ? 'Resetting...' : 'Reset password'}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
+                          </td>
+                          <td>
+                            <span className="pill">{u.role}</span>
+                          </td>
+                          <td>
                             <button
                               className="btn btn-tertiary"
                               type="button"
@@ -235,10 +252,10 @@ const AdminUsersPage = () => {
                             >
                               Edit
                             </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
