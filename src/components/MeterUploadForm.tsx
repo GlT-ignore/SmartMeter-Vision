@@ -20,20 +20,20 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
       setError('Please choose a meter photo.')
       return
     }
-    
+
     // Validate tenant reading (required)
     const readingValue = tenantReading.trim()
     if (!readingValue) {
       setError('Please enter the meter reading value.')
       return
     }
-    
+
     const parsedReading = Number(readingValue)
     if (Number.isNaN(parsedReading)) {
       setError('Please enter a valid meter reading number.')
       return
     }
-    
+
     setError(null)
     setMessage(null)
     setUploading(true)
@@ -62,10 +62,9 @@ const MeterUploadForm = ({ flatId, onComplete }: Props) => {
           className="input"
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
-        <p className="small">Tip: Take a clear, well-lit photo. Mobile camera capture is supported.</p>
+        <p className="small">Tip: Take a clear, well-lit photo. Mobile camera or gallery upload is supported.</p>
         <p className="small muted">Limit: one upload per calendar month.</p>
       </div>
       <div>
