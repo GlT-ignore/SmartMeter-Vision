@@ -19,7 +19,7 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promi
   return new Promise((resolve, reject) => {
     const img = new Image()
     const reader = new FileReader()
-    
+
     reader.onload = (e) => {
       if (!e.target?.result) {
         reject(new Error('Failed to read file'))
@@ -27,39 +27,39 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promi
       }
       img.src = e.target.result as string
     }
-    
+
     reader.onerror = () => reject(new Error('Failed to read file'))
-    
+
     img.onload = () => {
       // Calculate new dimensions
       let width = img.width
       let height = img.height
-      
+
       if (width > maxWidth) {
         height = (height * maxWidth) / width
         width = maxWidth
       }
-      
+
       // Create canvas and draw resized image
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
-      
+
       if (!ctx) {
         reject(new Error('Failed to get canvas context'))
         return
       }
-      
+
       ctx.drawImage(img, 0, 0, width, height)
-      
+
       // Convert to JPEG with compression
       const dataUrl = canvas.toDataURL('image/jpeg', quality)
       resolve(dataUrl)
     }
-    
+
     img.onerror = () => reject(new Error('Failed to load image'))
-    
+
     reader.readAsDataURL(file)
   })
 }
@@ -164,7 +164,7 @@ export function subscribeToPendingReadings(
 ): () => void {
   const readingsRef = collection(db, 'readings')
   const q = query(readingsRef, where('status', '==', 'pending'))
-  
+
   return onSnapshot(q, (snapshot) => {
     const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Reading, 'id'>) }))
     const sorted = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
@@ -182,7 +182,7 @@ export function subscribeToApprovedReadings(
     constraints.push(where('flatId', '==', flatId))
   }
   const q = query(readingsRef, ...constraints)
-  
+
   return onSnapshot(q, (snapshot) => {
     const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Reading, 'id'>) }))
     const sorted = list.sort(
@@ -202,7 +202,7 @@ export function subscribeToRejectedReadings(
     constraints.push(where('flatId', '==', flatId))
   }
   const q = query(readingsRef, ...constraints)
-  
+
   return onSnapshot(q, (snapshot) => {
     const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Reading, 'id'>) }))
     const sorted = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
@@ -234,29 +234,34 @@ export async function approveReading(readingId: string, correctedReading: number
   const prev = prevList.sort(
     (a, b) => (b.approvedAt || b.createdAt || 0) - (a.approvedAt || a.createdAt || 0),
   )[0]
-  
+
   // If no previous approved reading exists, check for initial reading in flat settings
   let previousReading: number | null = null
   if (prev) {
     // Use correctedReading if available, otherwise fall back to ocrReading
     previousReading = prev.correctedReading ?? prev.ocrReading ?? null
   }
-  
+
   // If still no previous reading found, check for initial reading in flat settings
   if (previousReading === null) {
     const flat = await getFlatByFlatId(reading.flatId)
     previousReading = flat?.initialReading ?? null
   }
-  
+
   // Default to 0 if no previous reading found at all
   const finalPreviousReading = previousReading ?? 0
 
   const rawUnits = correctedReading - finalPreviousReading
   const unitsUsed = rawUnits > 0 ? rawUnits : 0
-  let amount = unitsUsed * tariffPerUnit
-  if (amount < minimumPrice) {
-    amount = minimumPrice
-  }
+  // Calculate total KG first (apply unit conversion)
+  const totalKg = unitsUsed * unitFactor
+
+  // Calculate energy amount
+  const energyAmount = totalKg * tariffPerUnit
+
+  // Grand total is Energy Amount + Minimum Charge (Fixed Standing Charge)
+  // This matches the logic in ReceiptModal.tsx
+  const amount = energyAmount + minimumPrice
   const approvedAt = Date.now()
 
   await updateDoc(readingRef, {

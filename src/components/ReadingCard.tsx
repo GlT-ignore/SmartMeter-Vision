@@ -27,6 +27,32 @@ const formatNumber = (value: number | null | undefined): string => {
   return value.toFixed(3).replace(/\.?0+$/, '')
 }
 
+// Helper to calculate grand total dynamically for display
+// This allows fixing the display for historical readings even if the stored 'amount' was calculated incorrectly
+const calculateGrandTotal = (reading: Reading) => {
+  // If we have a stored amount but it looks like the old "wrong" calculation (no unit factor, or floor logic),
+  // we might want to recalculate. However, the safest bet to match the Receipt is to replicate Receipt logic using stored params.
+
+  if (reading.status !== 'approved') {
+    return reading.amount ?? 0
+  }
+
+  const prev = reading.previousReading ?? 0
+  // use correctedReading if available, fallback to ocr or 0
+  const current = reading.correctedReading ?? reading.ocrReading ?? 0
+  const units = reading.unitsUsed ?? Math.max(0, current - prev)
+
+  const tariffPerKg = reading.tariffAtApproval ?? 70 // fallback to default if missing
+  const unitFactor = reading.unitFactorAtApproval ?? 2.3 // fallback
+  const minimumCharge = 25 // default minimum charge
+
+  const kgConsumed = units
+  const totalKg = kgConsumed * unitFactor
+  const energyAmount = totalKg * tariffPerKg
+
+  return energyAmount + minimumCharge
+}
+
 const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
   const [showReceipt, setShowReceipt] = useState(false)
   const [showImage, setShowImage] = useState<null | 'current' | 'previous'>(null)
@@ -58,7 +84,12 @@ const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
           </div>
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <strong>Units:</strong> <span>{formatNumber(reading.unitsUsed)}</span>
-            <strong>Amount:</strong> <span>{formatNumber(reading.amount)}</span>
+            <strong>Amount:</strong>{' '}
+            <span>
+              {reading.status === 'approved'
+                ? formatNumber(calculateGrandTotal(reading))
+                : formatNumber(reading.amount)}
+            </span>
           </div>
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <strong>Created:</strong> <span style={{ wordBreak: 'break-word' }}>{formatDate(reading.createdAt)}</span>

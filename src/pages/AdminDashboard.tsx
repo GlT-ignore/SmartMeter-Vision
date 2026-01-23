@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuthState } from '../services/auth'
@@ -41,11 +41,11 @@ const calculateGrandTotal = (reading: Reading): number => {
   const units = reading.unitsUsed ?? 0
   const unitFactor = reading.unitFactorAtApproval ?? DEFAULT_UNIT_CONVERSION_KG
   const tariffPerKg = reading.tariffAtApproval ?? 0
-  
+
   const totalKg = units * unitFactor
   const energyAmount = totalKg * tariffPerKg
   const grandTotal = energyAmount + DEFAULT_MINIMUM_CHARGE
-  
+
   return grandTotal
 }
 
@@ -144,7 +144,7 @@ const AdminDashboard = () => {
       setGlobalTariff(currentTariff)
       setMinimumPrice(currentMinimumPrice)
       setUnitFactor(currentUnitFactor)
-      
+
       // Pre-fill corrections with tenant reading if available
       const initialCorrections: Record<string, string> = {}
       pendingItems.forEach((reading) => {
@@ -176,14 +176,14 @@ const AdminDashboard = () => {
         }
       })
       setInitialReadings(initialReadingsState)
-      
+
       // Create a mapping from flatId to tenantName for receipts
       const tenantNameMap: Record<string, string> = {}
       allFlats.forEach((flat) => {
         tenantNameMap[flat.flatId] = flat.tenantName || ''
       })
       setFlatIdToTenantName(tenantNameMap)
-      
+
       // Build flatOptions from ALL readings (not filtered) so dropdown always shows all flats
       // Sort alphabetically: A3, F4, G4
       const ids = new Set<string>()
@@ -529,7 +529,7 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Mobile card view */}
               <div className="mobile-card-list show-on-mobile">
                 {flats.map((flat) => (
@@ -740,6 +740,7 @@ const AdminDashboard = () => {
                       <tr>
                         <th>Flat</th>
                         <th>Period</th>
+                        <th>Uploaded</th>
                         <th>Previous</th>
                         <th>Reading</th>
                         <th>Units</th>
@@ -756,6 +757,9 @@ const AdminDashboard = () => {
                         <tr key={item.id}>
                           <td>{item.flatId}</td>
                           <td>{item.yearMonth ?? '—'}</td>
+                          <td>
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                          </td>
                           <td>{formatNumber(item.previousReading)}</td>
                           <td>
                             {item.correctedReading !== null && item.correctedReading !== undefined
@@ -817,7 +821,7 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
-                
+
                 {/* Mobile card view */}
                 <div className="mobile-card-list show-on-mobile">
                   {approvedHistory.map((item) => (
@@ -829,6 +833,12 @@ const AdminDashboard = () => {
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Period</span>
                         <span className="mobile-card-value">{item.yearMonth ?? '—'}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span className="mobile-card-label">Uploaded</span>
+                        <span className="mobile-card-value" style={{ fontSize: 11 }}>
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}
+                        </span>
                       </div>
                       <div className="mobile-card-row">
                         <span className="mobile-card-label">Previous</span>
@@ -947,7 +957,7 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Mobile card view */}
               <div className="mobile-card-list show-on-mobile">
                 {rejectedHistory.map((item) => (
