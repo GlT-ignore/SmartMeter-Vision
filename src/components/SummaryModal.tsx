@@ -91,7 +91,7 @@ const getFlatSortOrder = (flatId: string): number => {
 
 const SummaryModal = ({ approvedReadings, onClose }: Props) => {
   const [selectedMonth, setSelectedMonth] = useState<string>('')
-  const [flats, setFlats] = useState<Record<string, string>>({}) // flatId -> tenantName
+  const [flats, setFlats] = useState<Record<string, string>>({}) // flatId -> ownerName
   const summaryRef = useRef<HTMLDivElement | null>(null)
 
   // Get all available months from approved readings
@@ -111,8 +111,10 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
     if (!selectedMonth && availableMonths.length > 0) {
       const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
       if (availableMonths.includes(currentMonth)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedMonth(currentMonth)
       } else {
+         
         setSelectedMonth(availableMonths[0])
       }
     }
@@ -124,7 +126,7 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
       .then((flatsList) => {
         const flatMap: Record<string, string> = {}
         flatsList.forEach((flat) => {
-          flatMap[flat.flatId] = flat.tenantName || ''
+          flatMap[flat.flatId] = flat.ownerName || flat.tenantName || ''
         })
         setFlats(flatMap)
       })
@@ -212,9 +214,28 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
   const handleDownloadPdf = async () => {
     if (!summaryRef.current) return
 
+    // Determine the full scrollable width of the table
+    const tableEl = summaryRef.current.querySelector('table')
+    const fullWidth = tableEl ? tableEl.scrollWidth + 48 : summaryRef.current.scrollWidth
+    const currentWidth = summaryRef.current.offsetWidth
+
     const canvas = await html2canvas(summaryRef.current, {
       scale: 2,
       backgroundColor: '#ffffff',
+      windowWidth: Math.max(fullWidth, currentWidth),
+      onclone: (clonedDoc) => {
+        const clonedElement = clonedDoc.querySelector('[data-export-id="summary-content"]') as HTMLElement
+        if (clonedElement) {
+          clonedElement.style.width = `${Math.max(fullWidth, currentWidth)}px`
+          clonedElement.style.maxWidth = 'none'
+
+          const tableContainer = clonedElement.querySelector('.table-container') as HTMLElement
+          if (tableContainer) {
+            tableContainer.style.overflowX = 'visible'
+            tableContainer.style.width = 'max-content'
+          }
+        }
+      }
     })
 
     const doc = new jsPDF({
@@ -235,57 +256,79 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
     // Calculate usable area per page
     const usablePageHeight = pageHeight - marginTop - marginBottom
     const imgWidth = pageWidth - marginLeft - marginRight
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-    // Calculate how many pages we need
-    const totalPages = Math.ceil(imgHeight / usablePageHeight)
+    // Pixel to mm conversion factor
+    const pxToMm = imgWidth / canvas.width
+    // Maximum canvas pixels that fit on one page
+    const pageHeightPx = usablePageHeight / pxToMm
+
+    // Calculate row boundaries in canvas pixels
+    const rootRect = summaryRef.current.getBoundingClientRect()
+    const rows = Array.from(summaryRef.current.querySelectorAll('tr'))
+    // Vertical positions of row bottoms relative to the container
+    const rowBottoms = rows.map(row => row.getBoundingClientRect().bottom - rootRect.top)
+
+    // Convert DOM offsets to canvas pixels
+    const canvasScale = canvas.height / summaryRef.current.offsetHeight
+    const rowBottomsPx = rowBottoms.map(b => b * canvasScale)
 
     // Render image across multiple pages with proper margins
-    let yOffset = 0 // Current Y offset in the full image (in mm)
+    let yOffset = 0 // Current Y offset in canvas pixels
+    let pageNum = 0
 
-    for (let page = 0; page < totalPages; page++) {
-      if (page > 0) {
+    while (yOffset < canvas.height) {
+      if (pageNum > 0) {
         doc.addPage()
       }
 
-      // Calculate how much of the image to show on this page
-      const remainingHeight = imgHeight - yOffset
-      const heightOnThisPage = Math.min(usablePageHeight, remainingHeight)
+      const remainingHeight = canvas.height - yOffset
+      let heightOnThisPage = Math.min(pageHeightPx, remainingHeight)
 
-      // Calculate the source Y position in pixels
-      const sourceY = (yOffset / imgHeight) * canvas.height
-      const sourceHeight = (heightOnThisPage / imgHeight) * canvas.height
+      // Look for a safe cut mark if we haven't reached the end
+      if (yOffset + heightOnThisPage < canvas.height) {
+        const targetBase = yOffset + heightOnThisPage
+        let bestCut = -1
 
-      // Create a temporary canvas for this page's portion
+        // Find the lowest row bottom that sits above our maximum cut point
+        for (const bottom of rowBottomsPx) {
+          if (bottom > yOffset && bottom <= targetBase) {
+            bestCut = bottom
+          }
+        }
+
+        if (bestCut !== -1) {
+          heightOnThisPage = bestCut - yOffset
+        }
+      }
       const pageCanvas = document.createElement('canvas')
       pageCanvas.width = canvas.width
-      pageCanvas.height = Math.ceil(sourceHeight)
+      pageCanvas.height = Math.ceil(heightOnThisPage)
       const pageCtx = pageCanvas.getContext('2d')
 
       if (pageCtx) {
-        // Draw the portion of the image for this page
         pageCtx.drawImage(
           canvas,
-          0, sourceY, canvas.width, sourceHeight, // source rectangle
-          0, 0, canvas.width, Math.ceil(sourceHeight) // destination rectangle
+          0, yOffset, canvas.width, heightOnThisPage, // source rectangle
+          0, 0, canvas.width, Math.ceil(heightOnThisPage) // destination rectangle
         )
 
         const pageImgData = pageCanvas.toDataURL('image/png')
 
-        // Add to PDF with proper margins - always start at marginTop
-        // Use heightOnThisPage directly since it's already in mm
+        // Add to PDF
+        // heightOnThisPage * pxToMm converts from canvas pixels -> mm safely
         doc.addImage(
           pageImgData,
           'PNG',
           marginLeft,
           marginTop,
           imgWidth,
-          heightOnThisPage
+          heightOnThisPage * pxToMm
         )
       }
 
-      // Move to next page's starting position
+
       yOffset += heightOnThisPage
+      pageNum++
     }
 
     const fileName = `summary-${selectedMonth || 'all'}.pdf`
@@ -326,7 +369,7 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
           </div>
 
           {selectedMonth && filteredReadings.length > 0 && (
-            <div ref={summaryRef} style={{ backgroundColor: '#fff', padding: 24 }}>
+            <div ref={summaryRef} data-export-id="summary-content" style={{ backgroundColor: '#fff', padding: 24 }}>
               <div style={{ marginBottom: 24, textAlign: 'center' }}>
                 <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700 }}>
                   Monthly Summary
@@ -342,7 +385,7 @@ const SummaryModal = ({ approvedReadings, onClose }: Props) => {
                     <tr>
                       <th style={{ textAlign: 'left' }}>S.No.</th>
                       <th style={{ textAlign: 'left' }}>Flat Number</th>
-                      <th style={{ textAlign: 'left' }}>Name</th>
+                      <th style={{ textAlign: 'left' }}>Owner Name</th>
                       <th style={{ textAlign: 'right' }}>Meter Reading</th>
                       <th style={{ textAlign: 'right' }}>Bill Amount</th>
                     </tr>

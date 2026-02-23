@@ -30,7 +30,7 @@ const Layout = ({ children, username, role, subtitle, name, summaryButton }: Pro
           </div>
           <div className="layout-meta">
             {summaryButton}
-            {role ? <span className="badge">Role: {role}</span> : null}
+            {role ? <span className="badge">Role: {role === 'tenant' ? 'owner' : role}</span> : null}
             {name ? <span className="pill">Name: {name}</span> : null}
             {username ? <span className="pill">{username}</span> : null}
             <button className="btn btn-ghost" onClick={handleLogout}>

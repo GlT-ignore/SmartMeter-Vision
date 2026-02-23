@@ -6,7 +6,7 @@ import type { Reading } from '../types/models'
 interface Props {
   reading: Reading
   onClose: () => void
-  occupantName?: string | null
+  ownerName?: string | null
 }
 
 const DEFAULT_UNIT_CONVERSION_KG = 2.3
@@ -39,7 +39,7 @@ const formatMonthYear = (monthYear: string): string => {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
+const ReceiptModal = ({ reading, onClose, ownerName }: Props) => {
   const receiptRef = useRef<HTMLDivElement | null>(null)
   const prev = reading.previousReading ?? 0
   const current = reading.correctedReading ?? reading.ocrReading ?? 0
@@ -109,8 +109,8 @@ const ReceiptModal = ({ reading, onClose, occupantName }: Props) => {
 
             <div className="receipt-meta">
               <div className="receipt-meta-row">
-                <span className="receipt-label">Name of Owner / Occupant</span>
-                <span className="receipt-value">{occupantName || '—'}</span>
+                <span className="receipt-label">Name of Owner</span>
+                <span className="receipt-value">{ownerName || '—'}</span>
               </div>
             </div>
 

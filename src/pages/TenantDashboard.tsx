@@ -16,7 +16,7 @@ import type { Flat, Reading } from '../types/models'
 
 
 
- type ReadingWithPreviousImage = {
+type ReadingWithPreviousImage = {
 
   reading: Reading
 
@@ -200,7 +200,7 @@ const TenantDashboard = () => {
 
     return (
 
-      <Layout username={user.username} role="tenant" subtitle="Loading your data..." name={flat?.tenantName ?? null}>
+      <Layout username={user.username} role="tenant" subtitle="Loading your data..." name={flat?.ownerName || flat?.tenantName || null}>
 
         <div className="card">Loading...</div>
 
@@ -216,7 +216,7 @@ const TenantDashboard = () => {
 
     return (
 
-      <Layout username={user.username} role="tenant" subtitle="No flat linked to this account" name={flat?.tenantName ?? null}>
+      <Layout username={user.username} role="tenant" subtitle="No flat linked to this account" name={flat?.ownerName || flat?.tenantName || null}>
 
         <div className="card">
 
@@ -242,7 +242,7 @@ const TenantDashboard = () => {
 
       subtitle={`Flat ${flatId} — upload your meter photo and track status.`}
 
-      name={flat?.tenantName ?? null}
+      name={flat?.ownerName || flat?.tenantName || null}
 
     >
 
@@ -296,7 +296,7 @@ const TenantDashboard = () => {
 
                   previousImageUrl={previousImageUrl}
 
-                  occupantName={flat?.tenantName ?? null}
+                  ownerName={flat?.ownerName || flat?.tenantName || null}
 
                 />
 

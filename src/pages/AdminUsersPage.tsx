@@ -4,41 +4,58 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuthState } from '../services/auth'
 import { getAllUsers, updateUsername, updateUserPassword } from '../services/users'
-import type { User } from '../types/models'
+import { getAllFlats, updateFlat } from '../services/flats'
+import type { User, Flat } from '../types/models'
 
 const AdminUsersPage = () => {
   const { user } = useAuthState()
   const navigate = useNavigate()
 
   const [users, setUsers] = useState<User[]>([])
+  const [flats, setFlats] = useState<Flat[]>([])
   const [loading, setLoading] = useState(true)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
+
+  // Edit Form State
   const [newUsername, setNewUsername] = useState('')
+  const [newOwnerName, setNewOwnerName] = useState('')
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [newPassword, setNewPassword] = useState('')
+
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    loadUsers()
+    loadData()
   }, [])
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const allUsers = await getAllUsers()
+      const [allUsers, allFlats] = await Promise.all([
+        getAllUsers(),
+        getAllFlats().catch(() => []) // Catch flat errors so users still load
+      ])
       setUsers(allUsers)
+      setFlats(allFlats)
     } catch (err) {
-      console.error('Error loading users:', err)
+      console.error('Error loading data:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEditClick = (userId: string, currentUsername: string) => {
-    setEditingUserId(userId)
-    setNewUsername(currentUsername)
+  const handleEditClick = (user: User) => {
+    setEditingUserId(user.id)
+    setNewUsername(user.username)
+
+    // Find the flat belonging to this user to pre-fill the owner name
+    const userFlat = flats.find((f) => f.userId === user.id)
+    setNewOwnerName(userFlat?.ownerName || userFlat?.tenantName || '')
+
+    setShowPasswordReset(false)
     setNewPassword('')
     setError(null)
     setSuccess(null)
@@ -47,12 +64,14 @@ const AdminUsersPage = () => {
   const handleCancelEdit = () => {
     setEditingUserId(null)
     setNewUsername('')
+    setNewOwnerName('')
+    setShowPasswordReset(false)
     setNewPassword('')
     setError(null)
     setSuccess(null)
   }
 
-  const handleUpdateUsername = async (e: FormEvent, userId: string) => {
+  const handleSaveProfile = async (e: FormEvent, user: User) => {
     e.preventDefault()
     if (!newUsername.trim()) {
       setError('Username cannot be empty.')
@@ -64,12 +83,22 @@ const AdminUsersPage = () => {
     setSuccess(null)
 
     try {
-      await updateUsername(userId, newUsername.trim())
-      setSuccess('Username updated successfully.')
-      await loadUsers()
+      // 1. Update the username in auth/users
+      if (newUsername.trim() !== user.username) {
+        await updateUsername(user.id, newUsername.trim())
+      }
+
+      // 2. Update the ownerName in flats
+      const userFlat = flats.find((f) => f.userId === user.id)
+      if (userFlat && (userFlat.ownerName !== newOwnerName.trim() || userFlat.tenantName !== newOwnerName.trim())) {
+        await updateFlat(userFlat.id, { ownerName: newOwnerName.trim() })
+      }
+
+      setSuccess('Profile updated successfully.')
+      await loadData()
       handleCancelEdit()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update username.')
+      setError(err instanceof Error ? err.message : 'Failed to update profile.')
     } finally {
       setSubmitting(false)
     }
@@ -126,7 +155,7 @@ const AdminUsersPage = () => {
             <div>
               <h2 className="card-title">Manage users</h2>
               <p className="card-subtitle">
-                Change usernames and reset passwords for tenants and admins.
+                Change usernames and reset passwords for owners and admins.
               </p>
             </div>
             <button
@@ -172,90 +201,123 @@ const AdminUsersPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleUsers.map((u) => {
-                      if (editingUserId === u.id) {
-                        return (
-                          <tr key={u.id}>
-                            <td colSpan={3} style={{ background: 'var(--color-gray-50)' }}>
-                              <form onSubmit={(e) => handleUpdateUsername(e, u.id)}>
-                                <div className="grid-columns" style={{ alignItems: 'end', gap: 16 }}>
-                                  <div>
-                                    <label className="label small">Username</label>
-                                    <div className="row" style={{ gap: 8 }}>
-                                      <input
-                                        className="input"
-                                        type="text"
-                                        value={newUsername}
-                                        onChange={(e) => setNewUsername(e.target.value)}
-                                        placeholder="Username"
-                                      />
-                                      <button
-                                        className="btn btn-secondary"
-                                        type="submit"
-                                        disabled={submitting}
-                                      >
-                                        Save
-                                      </button>
-                                    </div>
-                                  </div>
+                    {visibleUsers.map((u) => (
+                      <tr key={u.id}>
+                        {editingUserId === u.id ? (
+                          <td colSpan={3}>
+                            <div className="card" style={{ padding: 16, margin: 0, boxShadow: 'none', border: '1px solid var(--border)' }}>
+                              <p className="subtitle" style={{ marginBottom: 12 }}>Edit Profile</p>
 
-                                  <div>
-                                    <label className="label small">New Password</label>
-                                    <div className="row" style={{ gap: 8 }}>
+                              <div className="row" style={{ gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                <div style={{ flex: 1, minWidth: 200 }}>
+                                  <label className="label">Username</label>
+                                  <input
+                                    className="input"
+                                    type="text"
+                                    value={newUsername}
+                                    onChange={(e) => setNewUsername(e.target.value)}
+                                  />
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 200 }}>
+                                  <label className="label">Owner Name</label>
+                                  {u.role === 'admin' ? (
+                                    <input className="input" type="text" value="—" disabled />
+                                  ) : (
+                                    <input
+                                      className="input"
+                                      type="text"
+                                      placeholder="e.g. John Doe"
+                                      value={newOwnerName}
+                                      onChange={(e) => setNewOwnerName(e.target.value)}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                                {showPasswordReset ? (
+                                  <div className="row" style={{ gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 200, maxWidth: 300 }}>
+                                      <label className="label">New Password</label>
                                       <input
                                         className="input"
                                         type="password"
+                                        placeholder="Enter new password"
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="Set new password"
                                       />
-                                      <button
-                                        className="btn btn-secondary"
-                                        type="button"
-                                        disabled={submitting || !newPassword}
-                                        onClick={() => handleResetPassword(u.id)}
-                                      >
-                                        Reset
-                                      </button>
                                     </div>
-                                  </div>
-
-                                  <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%', paddingBottom: 4 }}>
+                                    <button
+                                      className="btn btn-secondary"
+                                      type="button"
+                                      disabled={submitting || !newPassword}
+                                      onClick={() => handleResetPassword(u.id)}
+                                    >
+                                      {submitting ? 'Resetting...' : 'Confirm Reset Password'}
+                                    </button>
                                     <button
                                       className="btn btn-ghost"
                                       type="button"
-                                      onClick={handleCancelEdit}
+                                      onClick={() => {
+                                        setShowPasswordReset(false)
+                                        setNewPassword('')
+                                      }}
                                     >
-                                      Cancel
+                                      Cancel Password Change
                                     </button>
                                   </div>
-                                </div>
-                              </form>
-                            </td>
-                          </tr>
-                        )
-                      }
+                                ) : (
+                                  <button
+                                    className="btn btn-tertiary"
+                                    type="button"
+                                    onClick={() => setShowPasswordReset(true)}
+                                  >
+                                    Change Password
+                                  </button>
+                                )}
+                              </div>
 
-                      return (
-                        <tr key={u.id}>
-                          <td>
-                            <strong>{u.username}</strong>
+                              <div className="row" style={{ gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                                <button
+                                  className="btn btn-ghost"
+                                  type="button"
+                                  onClick={handleCancelEdit}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  className="btn btn-primary"
+                                  type="button"
+                                  disabled={submitting}
+                                  onClick={(e) => handleSaveProfile(e, u)}
+                                >
+                                  {submitting ? 'Saving...' : 'Save Changes'}
+                                </button>
+                              </div>
+                            </div>
                           </td>
-                          <td>
-                            <span className="pill">{u.role}</span>
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-tertiary"
-                              type="button"
-                              onClick={() => handleEditClick(u.id, u.username)}
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                        ) : (
+                          <>
+                            <td>
+                              <strong>{u.username}</strong>
+                            </td>
+                            <td>
+                              <span className="pill">{u.role === 'tenant' ? 'owner' : u.role}</span>
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-tertiary"
+                                type="button"
+                                onClick={() => handleEditClick(u)}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -265,7 +327,9 @@ const AdminUsersPage = () => {
                 {visibleUsers.map((u) => (
                   <div key={u.id} className="mobile-card-item">
                     {editingUserId === u.id ? (
-                      <div className="stack">
+                      <div className="stack" style={{ padding: 8 }}>
+                        <p className="subtitle" style={{ marginBottom: 4 }}>Edit Profile</p>
+
                         <div>
                           <label className="mobile-card-label">Username</label>
                           <input
@@ -276,17 +340,75 @@ const AdminUsersPage = () => {
                             style={{ marginTop: 4 }}
                           />
                         </div>
+
                         <div>
-                          <span className="pill">{u.role}</span>
+                          <label className="mobile-card-label">Owner Name</label>
+                          {u.role === 'admin' ? (
+                            <input className="input" type="text" value="—" disabled style={{ marginTop: 4 }} />
+                          ) : (
+                            <input
+                              className="input"
+                              type="text"
+                              placeholder="e.g. John Doe"
+                              value={newOwnerName}
+                              onChange={(e) => setNewOwnerName(e.target.value)}
+                              style={{ marginTop: 4 }}
+                            />
+                          )}
                         </div>
-                        <div className="mobile-card-actions">
+
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                          {showPasswordReset ? (
+                            <div className="stack" style={{ gap: 8 }}>
+                              <div>
+                                <label className="mobile-card-label">New Password</label>
+                                <input
+                                  className="input"
+                                  type="password"
+                                  placeholder="Enter new password"
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  style={{ marginTop: 4 }}
+                                />
+                              </div>
+                              <button
+                                className="btn btn-secondary mobile-full-width"
+                                type="button"
+                                disabled={submitting || !newPassword}
+                                onClick={() => handleResetPassword(u.id)}
+                              >
+                                {submitting ? 'Resetting...' : 'Confirm Reset Password'}
+                              </button>
+                              <button
+                                className="btn btn-ghost mobile-full-width"
+                                type="button"
+                                onClick={() => {
+                                  setShowPasswordReset(false)
+                                  setNewPassword('')
+                                }}
+                              >
+                                Cancel Password Change
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btn-tertiary mobile-full-width"
+                              type="button"
+                              onClick={() => setShowPasswordReset(true)}
+                            >
+                              Change Password
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="mobile-card-actions" style={{ marginTop: 16 }}>
                           <button
-                            className="btn btn-secondary"
+                            className="btn btn-primary"
                             type="button"
                             disabled={submitting}
-                            onClick={(e) => handleUpdateUsername(e, u.id)}
+                            onClick={(e) => handleSaveProfile(e, u)}
                           >
-                            {submitting ? 'Saving...' : 'Save username'}
+                            {submitting ? 'Saving...' : 'Save Changes'}
                           </button>
                           <button
                             className="btn btn-ghost"
@@ -296,25 +418,6 @@ const AdminUsersPage = () => {
                             Cancel
                           </button>
                         </div>
-                        <div>
-                          <label className="mobile-card-label">New Password</label>
-                          <input
-                            className="input"
-                            type="password"
-                            placeholder="New password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            style={{ marginTop: 4 }}
-                          />
-                        </div>
-                        <button
-                          className="btn btn-secondary"
-                          type="button"
-                          disabled={submitting || !newPassword}
-                          onClick={() => handleResetPassword(u.id)}
-                        >
-                          {submitting ? 'Resetting...' : 'Reset password'}
-                        </button>
                       </div>
                     ) : (
                       <>
@@ -324,13 +427,13 @@ const AdminUsersPage = () => {
                         </div>
                         <div className="mobile-card-row">
                           <span className="mobile-card-label">Role</span>
-                          <span className="pill">{u.role}</span>
+                          <span className="pill">{u.role === 'tenant' ? 'owner' : u.role}</span>
                         </div>
                         <div className="mobile-card-actions">
                           <button
                             className="btn btn-tertiary"
                             type="button"
-                            onClick={() => handleEditClick(u.id, u.username)}
+                            onClick={() => handleEditClick(u)}
                           >
                             Edit
                           </button>

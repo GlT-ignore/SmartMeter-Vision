@@ -15,6 +15,8 @@ export interface User {
 export interface Flat {
   id: string
   flatId: string
+  ownerName?: string
+  /** Legacy field for backwards compatibility with existing database records */
   tenantName?: string
   /**
    * Current tariff per unit or per KG for this flat.

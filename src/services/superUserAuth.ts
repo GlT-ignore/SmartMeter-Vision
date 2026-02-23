@@ -1,6 +1,6 @@
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut
 } from 'firebase/auth'
 import { auth } from './firebase'
@@ -54,6 +54,7 @@ export async function loginSuperUser(): Promise<SuperUser> {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(superUser))
     return superUser
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     if (error.code === 'auth/popup-closed-by-user') {
       throw new Error('Sign-in cancelled')
@@ -100,7 +101,7 @@ export function logoutSuperUser(): void {
 export function getCurrentSuperUser(): SuperUser | null {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (!stored) return null
-  
+
   try {
     return JSON.parse(stored) as SuperUser
   } catch {

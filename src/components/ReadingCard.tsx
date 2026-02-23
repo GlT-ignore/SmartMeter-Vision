@@ -11,9 +11,9 @@ interface Props {
    */
   previousImageUrl?: string | null
   /**
-   * Optional tenant / owner name for receipts.
+   * Optional owner name for receipts.
    */
-  occupantName?: string | null
+  ownerName?: string | null
 }
 
 const formatDate = (timestamp?: number) => {
@@ -53,7 +53,7 @@ const calculateGrandTotal = (reading: Reading) => {
   return energyAmount + minimumCharge
 }
 
-const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
+const ReadingCard = ({ reading, previousImageUrl, ownerName }: Props) => {
   const [showReceipt, setShowReceipt] = useState(false)
   const [showImage, setShowImage] = useState<null | 'current' | 'previous'>(null)
 
@@ -134,7 +134,7 @@ const ReadingCard = ({ reading, previousImageUrl, occupantName }: Props) => {
       {showReceipt && (
         <ReceiptModal
           reading={reading}
-          occupantName={occupantName ?? undefined}
+          ownerName={ownerName ?? undefined}
           onClose={() => setShowReceipt(false)}
         />
       )}

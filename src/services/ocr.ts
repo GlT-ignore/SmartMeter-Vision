@@ -4,7 +4,7 @@ export async function extractReadingFromFile(file: File) {
   const { data } = await Tesseract.recognize(file, 'eng')
   const text = data.text || ''
   // Debug: help tune heuristics for real meters during development.
-  // eslint-disable-next-line no-console
+   
   console.debug('[OCR raw text]', text)
 
   let candidate: string | null = null

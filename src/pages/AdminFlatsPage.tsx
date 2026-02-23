@@ -13,7 +13,7 @@ const AdminFlatsPage = () => {
   const [flatId, setFlatId] = useState('')
   const [initialReading, setInitialReading] = useState('')
   const [tariffPerUnit, setTariffPerUnit] = useState('')
-  const [tenantName, setTenantName] = useState('')
+  const [ownerName, setOwnerName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
@@ -60,14 +60,14 @@ const AdminFlatsPage = () => {
 
     try {
       setSubmitting(true)
-      
+
       // First create the user
       const userId = await createUser(username.trim(), password, 'tenant', flatId.trim())
-      
+
       // Then create the flat
       await createFlat({
         flatId: flatId.trim(),
-        tenantName: tenantName.trim() || undefined,
+        ownerName: ownerName.trim() || undefined,
         tariffPerUnit: parsedTariff,
         userId,
         initialReading: parsedInitial,
@@ -77,11 +77,11 @@ const AdminFlatsPage = () => {
       // Clear form but keep tariff as it is usually the same.
       setFlatId('')
       setInitialReading('')
-      setTenantName('')
+      setOwnerName('')
       setUsername('')
       setPassword('')
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error creating tenant:', err)
       setError(
         err instanceof Error ? err.message : 'Failed to create tenant. Please try again.',
@@ -165,16 +165,16 @@ const AdminFlatsPage = () => {
             </div>
 
             <div>
-              <label className="label" htmlFor="tenant-name">
-                Tenant name
+              <label className="label" htmlFor="owner-name">
+                Owner name
               </label>
               <input
-                id="tenant-name"
+                id="owner-name"
                 className="input"
                 type="text"
                 placeholder='e.g. "Chanikya Gajjarapu"'
-                value={tenantName}
-                onChange={(e) => setTenantName(e.target.value)}
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
               />
             </div>
 

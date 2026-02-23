@@ -72,7 +72,7 @@ const AdminDashboard = () => {
   const [initialReadings, setInitialReadings] = useState<Record<string, string>>({})
   const [savingInitialReading, setSavingInitialReading] = useState<string | null>(null)
   const [viewingReceipt, setViewingReceipt] = useState<Reading | null>(null)
-  const [flatIdToTenantName, setFlatIdToTenantName] = useState<Record<string, string>>({})
+  const [flatIdToOwnerName, setFlatIdToOwnerName] = useState<Record<string, string>>({})
   const [showSummary, setShowSummary] = useState(false)
 
   // Map each flat to its latest approved reading's image URL.
@@ -177,12 +177,12 @@ const AdminDashboard = () => {
       })
       setInitialReadings(initialReadingsState)
 
-      // Create a mapping from flatId to tenantName for receipts
-      const tenantNameMap: Record<string, string> = {}
+      // Create a mapping from flatId to ownerName for receipts
+      const ownerNameMap: Record<string, string> = {}
       allFlats.forEach((flat) => {
-        tenantNameMap[flat.flatId] = flat.tenantName || ''
+        ownerNameMap[flat.flatId] = flat.ownerName || flat.tenantName || ''
       })
-      setFlatIdToTenantName(tenantNameMap)
+      setFlatIdToOwnerName(ownerNameMap)
 
       // Build flatOptions from ALL readings (not filtered) so dropdown always shows all flats
       // Sort alphabetically: A3, F4, G4
@@ -490,7 +490,7 @@ const AdminDashboard = () => {
                   <thead>
                     <tr>
                       <th>Flat ID</th>
-                      <th>Tenant Name</th>
+                      <th>Owner Name</th>
                       <th>Initial Reading</th>
                       <th>Action</th>
                     </tr>
@@ -501,7 +501,7 @@ const AdminDashboard = () => {
                         <td>
                           <strong>{flat.flatId || flat.id}</strong>
                         </td>
-                        <td>{flat.tenantName ?? '—'}</td>
+                        <td>{flat.ownerName || flat.tenantName || '—'}</td>
                         <td>
                           <input
                             className="input input-inline"
@@ -539,8 +539,8 @@ const AdminDashboard = () => {
                       <span className="mobile-card-value">{flat.flatId || flat.id}</span>
                     </div>
                     <div className="mobile-card-row">
-                      <span className="mobile-card-label">Tenant Name</span>
-                      <span className="mobile-card-value">{flat.tenantName ?? '—'}</span>
+                      <span className="mobile-card-label">Owner Name</span>
+                      <span className="mobile-card-value">{flat.ownerName || flat.tenantName || '—'}</span>
                     </div>
                     <div>
                       <label className="mobile-card-label">Initial Reading</label>
@@ -1013,7 +1013,7 @@ const AdminDashboard = () => {
       {viewingReceipt && (
         <ReceiptModal
           reading={viewingReceipt}
-          occupantName={flatIdToTenantName[viewingReceipt.flatId] || null}
+          ownerName={flatIdToOwnerName[viewingReceipt.flatId] || null}
           onClose={() => setViewingReceipt(null)}
         />
       )}

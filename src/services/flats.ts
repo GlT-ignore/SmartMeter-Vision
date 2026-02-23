@@ -35,7 +35,7 @@ export async function getAllFlats(): Promise<Flat[]> {
 
 export type NewFlatInput = {
   flatId: string
-  tenantName?: string
+  ownerName?: string
   tariffPerUnit: number
   userId: string
   initialReading?: number | null
