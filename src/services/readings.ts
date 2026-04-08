@@ -275,6 +275,9 @@ export async function approveReading(readingId: string, correctedReading: number
     // alter historical amounts.
     tariffAtApproval: tariffPerUnit,
     unitFactorAtApproval: unitFactor,
+    // Freeze the minimum/fixed standing charge used for this bill so later
+    // setting changes do not alter historical amounts.
+    minimumPriceAtApproval: minimumPrice,
   })
 }
 

@@ -10,7 +10,9 @@ interface Props {
 }
 
 const DEFAULT_UNIT_CONVERSION_KG = 2.3
-const DEFAULT_MINIMUM_CHARGE = 25
+// Fallback used only for legacy readings approved before we began
+// snapshotting `minimumPriceAtApproval` on the reading document.
+const LEGACY_FALLBACK_MINIMUM_CHARGE = 25
 
 const formatNumber = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '—'
@@ -25,7 +27,15 @@ const calculateGrandTotal = (reading: Reading): number => {
 
   const totalKg = units * unitFactor
   const energyAmount = totalKg * tariffPerKg
-  const grandTotal = energyAmount + DEFAULT_MINIMUM_CHARGE
+  // Prefer the frozen snapshot captured at approval time. Fall back to
+  // deriving it from the stored `reading.amount` for legacy readings that
+  // predate the snapshot field, and finally to a hardcoded default.
+  const minimumCharge =
+    reading.minimumPriceAtApproval ??
+    (reading.amount != null
+      ? Math.max(0, reading.amount - energyAmount)
+      : LEGACY_FALLBACK_MINIMUM_CHARGE)
+  const grandTotal = energyAmount + minimumCharge
 
   return grandTotal
 }

@@ -10,7 +10,10 @@ interface Props {
 }
 
 const DEFAULT_UNIT_CONVERSION_KG = 2.3
-const DEFAULT_MINIMUM_CHARGE = 25
+// Fallback used only for legacy readings approved before we began
+// snapshotting `minimumPriceAtApproval`. New approvals always carry
+// the actual value that was in force at approval time.
+const LEGACY_FALLBACK_MINIMUM_CHARGE = 25
 const DUE_DATE_OFFSET_DAYS = 5
 
 const formatDateOnly = (timestamp?: number) => {
@@ -57,7 +60,15 @@ const ReceiptModal = ({ reading, onClose, ownerName }: Props) => {
   const totalKg = kgConsumed * unitFactor
   const energyAmount = totalKg * tariffPerKg
 
-  const minimumCharge = DEFAULT_MINIMUM_CHARGE
+  // Prefer the frozen snapshot captured at approval time. Fall back to
+  // deriving it from the stored `reading.amount` for legacy readings that
+  // predate the snapshot field, and finally to a hardcoded default if
+  // neither is available.
+  const minimumCharge =
+    reading.minimumPriceAtApproval ??
+    (reading.amount != null
+      ? Math.max(0, reading.amount - energyAmount)
+      : LEGACY_FALLBACK_MINIMUM_CHARGE)
   const grandTotal = energyAmount + minimumCharge
 
   // Determine the month/year string

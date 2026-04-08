@@ -64,6 +64,12 @@ export interface Reading {
    */
   unitFactorAtApproval?: number | null
   /**
+   * Minimum/fixed standing charge that was in force when this reading
+   * was approved. Frozen so later changes to the global minimum price
+   * do not retroactively alter historic bills.
+   */
+  minimumPriceAtApproval?: number | null
+  /**
    * Calendar year and month of the submission, e.g. "2025-03".
    * Used to enforce one-reading-per-month-per-tenant, unless rejected.
    */
